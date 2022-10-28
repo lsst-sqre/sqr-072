@@ -1,0 +1,57 @@
+# Document metadata. metadata.yaml is used by documenteer and other tools
+# to build the document and index it. It should be maintained alongside the
+# document in git and kept up to date.
+
+# The series identifier. E.g. SQR, DMTN, SMTN, LDM, LSE, etc.
+series: "SQR"
+
+# Document number, as a string. It should be three digits, padded with leading zeros
+serial_number: "072"
+
+# Serial number of the document. E.g. SQR-001
+# NOTE: this field is *planned* for deprecation
+doc_id: "SQR-072"
+
+# Title of the document, without the series/serial designation
+doc_title: "One design pattern for FastAPI web applications"
+
+# Author names, ordered as a list. Each author name should be formatted as 'First Last'
+authors:
+  - "Russ Allbery"
+
+# Current document revision date, YYYY-MM-DD
+# Only set this field if you need to manually fix the revision date;
+# the revision date is obtained from the HEAD Git commit otherwise.
+# last_revised: 'YYYY-MM-DD'
+
+# Version. Use semantic versioning, e.g., 1.0.0, including .dev, as necessary.
+# This version string should correspond to the git tag when the document is
+# published on Zenodo. If left commented out, the current Git branch is used
+# instead version: '1.0.0'
+
+# Digital Object Identifier (DOI). Uncomment if available.
+# Keep this DOI updated as new releases are pushed to Zenodo
+# doi: 10.5281/zenodo.#####
+
+# Copyright statement
+copyright: "2022, Association of Universities for Research in Astronomy, Inc. (AURA)"
+
+# Description. A short, 1-2 sentence statemement used by document indices.
+description: "Describes the design pattern and code structure the author uses for FastAPI web applications. This is only one possible approach, and is not a standard or requirement."
+
+# Abstract, if available
+# abstract: >
+#           Write your paragraph
+#           here with multiple lines.
+#
+#           You can have multiple paragraphs too.
+
+# URL where this document is published by Read the Docs. e.g. http://sqr-001.lsst.codes
+url: "https://sqr-072.lsst.io"
+
+# LSST Docushare URL, if authoritative versions of this are are stored there.
+# Leave as an empty string or comment out this key if there is no Docushare URL.
+docushare_url: ""
+
+# GitHub repo URL
+github_url: "https://github.com/lsst-sqre/sqr-072"

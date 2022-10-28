@@ -1,0 +1,12 @@
+name: CI
+
+'on': [push, pull_request, workflow_dispatch]
+
+jobs:
+  call-workflow:
+    uses: lsst-sqre/rubin-sphinx-technote-workflows/.github/workflows/ci.yaml@v1
+    with:
+      handle: sqr-072
+    secrets:
+      ltd_username: ${{ secrets.LTD_USERNAME }}
+      ltd_password: ${{ secrets.LTD_PASSWORD }}

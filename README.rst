@@ -14,7 +14,8 @@ One design pattern for FastAPI web applications
 SQR-072
 =======
 
-Describes the design pattern and code structure the author uses for FastAPI web applications. This is only one possible approach, and is not a standard or requirement.
+Describes the design pattern and code structure the author uses for FastAPI web applications.
+This is only one possible approach, and is not a standard or requirement.
 
 **Links:**
 

@@ -569,6 +569,66 @@ All of these could be provided as separate dependencies, but grouping them into 
 It also allows the context object to provide some extra functionality, such as rebinding the structlog_ logger with additional context discovered by the handler or its other dependencies.
 The request context dependency can also (as here) be responsible for constructing the factory object that's then used to create service objects.
 
+.. _testing:
+
+Testing
+=======
+
+Always use pytest_ for testing.
+Always use the function and fixture approach.
+Never use ``unittest``-style classes.
+
+.. _pytest: https://docs.pytest.org/en/latest/
+
+The "don't repeat yourself" rule is relaxed for tests in favor of making each test case obvious and straightforward.
+It's okay to cut and paste input data and expected results with minor variations.
+This is preferrable over being too fancy with templating or dynamically-generated code.
+Do not create a situation where debugging the logic of the test is harder than debugging your actual application, or where application bugs are masked by test bugs from over-complicated test logic.
+
+Naming
+------
+
+Organize the tests according to the entry point of the application invoked.
+For example, tests that create the full FastAPI application and interact with its routes go into a ``tests/handlers`` directory.
+Tests that create a service object and interact with it directly go into the ``tests/services`` directory.
+Most tests will be in ``tests/handlers``; this is fine.
+
+The ``tests`` directory and every subdirectory must have an empty ``__init__.py`` file so that mypy works correctly.
+
+Files containing tests should always end in ``_test.py`` and should never start with ``test_``.
+This makes tab completion on file names work better.
+As a first rough guide, put tests into files matching the name of the source file primarily being tested, but feel free to deviate from this guideline to break up large files of tests into ones grouped by subject matter.
+
+Fixtures and support code
+-------------------------
+
+Fixtures should generally be collected into a ``tests/conftest.py`` file.
+Avoid fixtures in individual test files; they're easy to forget about and thus not reuse in other tests even when they would be helpful.
+If there are a set of fixtures that are very specific to tests for only one part of the application, such as Kubernetes fixtures for a ``tests/operator`` directory full of tests for a Kopf_ Kubernetes operator, put them in a ``conftest.py`` file in that directory so that they're isolated to those tests.
+
+To clean up after tests that need external resources or modify global state, use `yield fixtures <https://docs.pytest.org/en/latest/fixture.html#yield-fixtures-recommended>`__.
+Set up the resource or global state in the fixture, yield (it's okay to yield ``None`` and is often appropriate if the fixture doesn't need to provide a value to the test), and then close any resources and put any global state back the way it was.
+
+Prefer per-test fixtures, but feel free to use session fixtures in places where it substantially speeds up the test suite (but be careful to avoid leaking state from one test to the next).
+
+Put support code for tests in modules under ``tests/support``.
+There should be no actual tests in that directory, only support code for other tests.
+Any test support code used in more than one test should go into that directory, and feel free to move support code used by only one test file as well if it seems clearer.
+
+Try to keep the code in fixtures as short as possible.
+Prefer to put the bulk of the code under ``tests/support`` and have the fixture call a function or use an object defined there.
+
+Test data
+---------
+
+Prefer storing test data in files under the ``tests`` directory in an appropriately-named subdirectory over embedding test data in long strings inside test cases.
+Test data can then be loaded with code such as:
+
+.. code-block:: python
+
+   data_path = Path(__file__).parent.parent / "data" / "some-data-file.txt"
+   data = data_path.read_text()
+
 .. _third-party:
 
 Preferred third-party libraries
@@ -642,6 +702,14 @@ Data types
 
 - Differences between times, including usually in constants, should be represented as ``timedelta`` objects rather than an integer number of seconds, minutes, etc.
   The one exception is if the constant is used as a validation parameter in contexts (such as some Pydantic and FastAPI cases) where a ``timedelta`` is not supported.
+
+- Always use pathlib_ for any file paths.
+  Never use os.path_ functions.
+  If necessary for external APIs, convert ``Path`` objects to strings with ``str()`` when passing them to external methods or functions.
+  For internal APIs and internal models, always take a ``Path`` object rather than a ``str`` when accepting a file path.
+
+.. _pathlib: https://docs.python.org/3/library/pathlib.html
+.. _os.path: https://docs.python.org/3/library/os.path.html
 
 Classes
 -------

@@ -591,7 +591,7 @@ For other cases, prefer the listed PyPI libraries:
 - **Redis**: aioredis_
 - **SQL**: SQLAlchemy_ (use the 2.0 API with async) and asyncpg_
 - **Templating**: Jinja_
-- **YAML**: PyYAML if preserving comments and order isn't required, otherwise ruamel.yaml_.
+- **YAML**: PyYAML_ if preserving comments and order isn't required, otherwise ruamel.yaml_.
 
 .. _kubernetes_asyncio: https://github.com/tomplus/kubernetes_asyncio
 .. _bonsai: https://bonsai.readthedocs.io/en/latest/

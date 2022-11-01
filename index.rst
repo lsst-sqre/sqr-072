@@ -745,7 +745,7 @@ Docstrings
   This is likely to be fixed soon.)
 
 - Contrary to the above style guide, I restrict the first, summary line of any docstring to fit entirely on one line.
-  I feel strongly about having a brief summary and think wrapped summary lines look awkward; consider it a personal quirk.
+  This is just personal preference; to me, wrapped summary lines look awkward and haven't felt necessary.
 
 - All modules, classes, public methods of classes and instances, functions, and constants should have full docstrings following the above style.
   Modules that provide only a single class usually only need a one-line docstring, since the bulk of the useful documentation goes into the class and doesn't need to be repeated.

@@ -89,7 +89,7 @@ The two main goals of this application structure are separation of concerns and 
 
 For separation of concerns, this structure allows clean separation between the code that converts an HTTP request into an internal call (the handler), the business logic that makes decisions about what should happen (the service), and the code to convert between internal data structures and external storage (the storage object).
 Each of these can change independently of the other or gain multiple implementations with minimum impact on the rest of the application.
-For example, one could add a command-line interface that takes some of the same actions as the web UI without duplicating code, since both would call into the services layer.
+For example, one could add a command-line interface (or GraphQL interface, gRPC interface, Kafka topic handler, or async worker) that takes some of the same actions as the web UI without duplicating code, since both would call into the services layer.
 Or one could replace the database backend with minimum impact on the rest of the application, since all code for dealing with the database is contained in the storage layer.
 
 I've found that this separation of concerns also helps me write better code by focusing my mindset when writing each piece of code.

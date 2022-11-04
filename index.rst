@@ -635,11 +635,12 @@ Preferred third-party libraries
 ===============================
 
 In general, use Safir_ whenever it provides necessary functionality, and use whatever underlying libraries it supports.
-This includes HTTPX_ for HTTP clients and structlog_ for logging.
+This includes HTTPX_ for HTTP clients, structlog_ for logging, and arq_ for work queues.
 
 .. _Safir: https://safir.lsst.io/
 .. _HTTPX: https://www.python-httpx.org/
 .. _structlog: https://www.structlog.org/en/stable/
+.. _arq: https://arq-docs.helpmanual.io/
 
 For other cases, prefer the listed PyPI libraries:
 

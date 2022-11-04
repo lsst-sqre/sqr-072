@@ -748,7 +748,7 @@ Docstrings
 
 - Write docstrings following the `Rubin project recommendations <https://developer.lsst.io/python/numpydoc.html>`__.
   (As of this writing, this guide does not yet recommend omitting types from the docstrings, which is now better style when using current Sphinx.
-  This is likely to be fixed soon.)
+  This is likely to be updated soon.)
 
 - Contrary to the above style guide, I restrict the first, summary line of any docstring to fit entirely on one line.
   This is just personal preference; to me, wrapped summary lines look awkward and haven't felt necessary.

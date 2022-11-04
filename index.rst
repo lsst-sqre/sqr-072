@@ -675,6 +675,12 @@ Here are some additional, somewhat random notes.
 Typing
 ------
 
+- Do not use ``from __future__ import annotations`` in any file that defines FastAPI handlers or dependencies.
+  You will inevitably run into bizarre and hard-to-understand problems because FastAPI relies heavily on type annotations and cannot do the analysis it needs to do when this feature is enabled.
+  You can still use this directive in other files, such as services, storage modules, and models.
+  If you need a forward type reference in a file that defines a dependency or handler (this is rare and is probably a sign you have code you should move to a model or a service), quote the reference instead of using this directive.
+  If you can switch to Python 3.11 or later, the ``Self`` type may do what you want.
+
 - All code should be fully typed using mypy.
   Use ``TypeVar`` and bound types to type function decorators and generics as tightly as possible and avoid losing type information.
   For helper functions that return ``None`` only if the input is ``None``, use ``@overload`` to tell mypy about those sematics and avoid a generic ``Optional`` return type.

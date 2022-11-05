@@ -985,6 +985,10 @@ This is fine.
 .. _Semantic Versioning: https://semver.org/
 
 Each release should is marked with a Git tag matching the version number (with no leading ``v``).
+The FastAPI Safir App template uses setuptools_scm_ to generate the application version, which will take the version from the Git tag.
+
+.. _setuptools_scm: https://github.com/pypa/setuptools_scm
+
 Each release should also be a GitHub release made at the same time.
 The title of the release should also be the version number.
 

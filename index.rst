@@ -417,7 +417,7 @@ Internal models
 ---------------
 
 For models that are only used internally (such as between services and storage objects), prefer dataclasses_ to Pydantic models.
-Dataclasses are much simpler and signal that none of the complex validation done by Pydantic is in play.
+Dataclasses are much simpler and signal that none of the complex validation or data transformation done by Pydantic is in play.
 
 .. _dataclasses: https://docs.python.org/3/library/dataclasses.html
 

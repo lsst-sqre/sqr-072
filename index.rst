@@ -593,6 +593,56 @@ All of these could be provided as separate dependencies, but grouping them into 
 It also allows the context object to provide some extra functionality, such as rebinding the structlog_ logger with additional context discovered by the handler or its other dependencies.
 The request context dependency can also (as here) be responsible for constructing the factory object that's then used to create service objects.
 
+.. _services:
+
+Services
+========
+
+The service layer is where all the business logic of the application should live.
+Business logic is the core work that the application is trying to perform, separated from how that work is requested (the UI, implemented by the request handlers and possibly CLI code) and how data is stored and retrieved (the storage layer).
+
+All input and output data from the service layer should be either simple types or models.
+The layers above and below that layer are responsible for converting those models to other formats for talking to the rest of the world.
+
+The purpose of this layered model is complexity isolation.
+The service layer is the most critical part of that layering, and its API deserves some careful thought.
+In general, the API exposed by the service layer should consist of commands: "get a matching object," "create a resource for this user," or "delete data with this key."
+Sometimes it may include questions: "is this user an administrator."
+
+The method names of the API will therefore look like ``get_user`` or ``create_lab``.
+The arguments to the method should fully specify the object to retrieve or act on without providing more complex data than is necessary.
+
+So, for example, when creating a resource for a specific user, an appropriate signature would be something like this:
+
+.. code-block:: python
+
+   async def create_resource(self, username: str) -> Resource: ...
+
+In this case, only the username is required to create the resource.
+If the handler has a full data structure about the user, it should *not* pass in the entire user model just because it's convenient, unless most of that data will be used.
+Instead, it should pass in only the username, so that it's obvious at both the call site and the implementation site that only the username is needed or used.
+
+This may seem like a minor and tedious point, but strictly following this design for a minimal API that clearly advertises what data it uses and acts on will help keep complexity isolated and contained within the application.
+
+Dependency injection
+--------------------
+
+All service objects should use `dependency injection`_.
+This means that any other objects that a service object needs to call should be passed into its constructor, not created in its constructor.
+This aids with testing and complexity isolation.
+
+.. _dependency injection: https://www.jamesshore.com/v2/blog/2006/dependency-injection-demystified
+
+Similar to the principal above for methods, those objects should be passed in individually, not in a container object with lots of objects that may or may not be needed by this service.
+
+The most common dependencies injected into a service object are storage objects, the application configuration (or some subset of it), and internal process-wide caches (if they are simple enough to not warrant their own storage layer to manage them).
+
+It helps code clarity immensely to maintain a clear mental separation between *dependencies* (code and other objects that the service object needs to do its work) and *parameters* (the instructions for what work to do).
+The former should be injected into the constructor when the service object is created.
+The latter should be passed into the service object method as part of the API call.
+
+One helpful way to think of this distinction is that dependencies are general facilities of the application (even if they're created anew with each request), whereas method parameters are details from the specific request or command-line invocation being processed.
+
 .. _testing:
 
 Testing

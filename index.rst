@@ -643,6 +643,27 @@ The latter should be passed into the service object method as part of the API ca
 
 One helpful way to think of this distinction is that dependencies are general facilities of the application (even if they're created anew with each request), whereas method parameters are details from the specific request or command-line invocation being processed.
 
+.. _storage:
+
+Storage
+=======
+
+The storage layer is responsible for converting internal models into the format required to store them somewhere else.
+That "somewhere else" could be a SQL database, Redis, another web service with an API, or even an internal in-memory cache.
+
+The rule for the storage layer is absolutely no business logic.
+The sole responsibility of the storage layer is to take a model or simple types from the service layer and perform an operation: store data, retrieve data (and return it as a model), delete data, and so forth.
+It may also encapsulate more complex storage operations, such as complex SQL searches.
+But it should not make any decisions.
+The storage layer should be a mechanical conversion of the operation the service layer wants to perform into the language or operations required to perform it.
+
+This means the storage layer may do syntax checks if required to safely store data, and may enforce such things as referential integrity.
+But it shouldn't do any authorization checks, it shouldn't manipulate the data beyond the translation required to convert to and from internal models, and it shouldn't make any decisions about what data should be stored.
+All of that is the business of the service layer.
+
+The storage layer should generally only be called by the service layer.
+Even in cases where the service layer has nothing to do, I add a pass-through API to the service layer to maintain this invariant.
+
 .. _testing:
 
 Testing

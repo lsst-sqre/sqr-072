@@ -707,6 +707,10 @@ Typing
 - Avoid ``Union`` types.
   They are usually not necessary and add considerable complexity to the signatures and type-checking of surrounding code.
   Instead, be more opinionated about the correct type and convert to that type earlier.
+  In the rare case where they are appropriate, such as models with two mutually-exclusive options, use the ``|`` syntax instead of the ``Union`` syntax.
+
+- Prefer ``list`` and ``dict`` to ``List`` and ``Dict``, and similarly for all of the other `deprecated types <https://peps.python.org/pep-0585/#implementation>`__.
+  Note that many types (such as ``AsyncIterator``, ``Iterable``, and ``Mapping``) should be imported from ``collections.abc`` and not ``typing``.
 
 Data types
 ----------

@@ -817,14 +817,15 @@ The purpose of the tech note isn't to explain how to use the application.
 Instead, it's to describe the problem that it was trying to solve (the requirements), the approach we took to solving that problem, any non-obvious technical decisions and what alternatives we considered, and any future work.
 The intended audience for the tech note is other sites or other project members trying to understand what we did, and any future maintainer of the application who needs to understand the underlying design principles and tradeoffs.
 
-Use ``DMTN`` tech notes for Science Platform components.
-Use ``SQR`` tech notes for internal applications.
-
 Most applications will have a single tech note.
 Some larger applications may benefit from having separate tech notes for the overall design and for the implementation details.
 The target audience for the first tech note would be people who want to know how the system works at a high level and what users of the Science Platform would see, distinct from the target audience for the second tech note, which is people working on the implementation.
 
 In particularly complex cases, it may also be a good idea to split the second tech note into one, kept-up-to-date tech note on the current implementation approach without all the blind alleys and failed experiments, and a second tech note that goes into detail about all the approaches that were tried and abandoned, and all the implementation decisions made along the way.
+
+Use ``DMTN`` tech notes if the tech note will need a reviewer outside of the SQuaRE team.
+For example, design documents for VO services that will be reviewed by the product owner should use the ``DMTN`` series.
+Use ``SQR`` tech notes for internal applications, implementation documents, and other designs that do not need to be reviewed outside of SQuaRE.
 
 For an example of a complex tech note series with all three of those types of tech notes, see the Gafaelfawr tech notes: DMTN-234_, DMTN-224_, and SQR-069_.
 

@@ -445,6 +445,7 @@ They are data structures and data containers, not repositories of code.
 
 The one case where methods on models are appropriate is for data conversion.
 Use custom constructors (written as class methods) to create a data model object by parsing some other representation of that object, and add methods such as ``to_dict`` or ``as_cookie`` to format the contents of the data model into some other representation.
+(Pydantic provides a built-in ``dict`` method, but sometimes the desired dict representation involves some other format conversion that warrants a custom ``to_dict`` method.)
 
 These methods should only do format conversion and input validation, not higher-level verification or business logic such as authorization checks.
 
@@ -753,6 +754,12 @@ Methods and functions
 
 - Whenever the meaning of a method or function parameter is not obvious in context at the call site, put that parameter after ``*`` so that the parameter name is mandatory.
   A common case of this is boolean parameters, which should almost always be listed after ``*`` because the meaning of a bare ``True`` or ``False`` is usually inobvious at the call site.
+
+- Use ``to_`` as a prefix for methods that convert a data object's contents to another format (such as ``to_dict`` or ``as_header``).
+  Use ``from_`` as a prefix to class methods that create a data object from some other data source (such as ``from_cookie`` or ``from_str``).
+
+- Consider using ``is_`` as a prefix for boolean functions or methods that answer yes-or-no questions about their arguments or the object on which they're defined.
+  Don't use ``is_`` as a prefix for a function or method that returns something other than a boolean.
 
 Docstrings
 ----------

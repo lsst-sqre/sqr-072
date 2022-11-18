@@ -365,6 +365,16 @@ I generally do not make the class also inherit from ``str`` and instead explicit
 This ensures that the enum values can't be compared directly to arbitrary strings without mypy complaining, which avoids a class of bugs.
 This is a matter of personal taste, however.
 
+There's generally no need for type aliases in models (or elsewhere).
+
+For complex types, ``list`` is fine and ``list[SomeModel]`` or ``list[str]`` is an entirely reasonable type for a model attribute to have.
+Be more careful wtih ``dict``.
+The rule of thumb is that a ``dict`` type is fine if and only if all keys have the same type and all values have the same type.
+So, for instance, ``dict[str, str]`` or ``dict[str, SomeObject]`` is fine, but if the values of the dict may have several types or nested structure, use a submodel rather than a dict.
+
+Validators
+^^^^^^^^^^
+
 There are often cases where the input from a user won't necessarily be in the same form that the rest of the application expects.
 In those cases, use validators to perform the type checking and conversion.
 

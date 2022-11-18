@@ -22,6 +22,17 @@ Readers are encouraged to examine those applications and draw their own conclusi
 .. _mobu: https://github.com/lsst-sqre/mobu
 .. _vo-cutouts: https://github.com/lsst-sqre/vo-cutouts
 
+Python version
+==============
+
+Unless there is a specific hard requirement, do not support Python versions older than Python 3.10.
+
+In general, FastAPI web applications should update to the current release of Python shortly after it is released and do not need to support more than one version of Python except during that transition period.
+I update to a newer version of Python once it becomes the default in Debian unstable.
+
+All supported versions should be tested with GitHub Actions.
+Don't forget to update GitHub Actions configuration when changing the supported version.
+
 .. _architecture:
 
 High-level architecture

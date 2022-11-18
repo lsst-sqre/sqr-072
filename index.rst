@@ -315,6 +315,8 @@ It also includes anything returned by a handler in a response body, including er
 
 .. _Pydantic: https://pydantic-docs.helpmanual.io/
 
+.. _pydantic-models:
+
 Pydantic models
 ---------------
 
@@ -370,7 +372,7 @@ There's generally no need for type aliases in models (or elsewhere).
 For complex types, ``list`` is fine and ``list[SomeModel]`` or ``list[str]`` is an entirely reasonable type for a model attribute to have.
 Be more careful wtih ``dict``.
 The rule of thumb is that a ``dict`` type is fine if and only if all keys have the same type and all values have the same type.
-So, for instance, ``dict[str, str]`` or ``dict[str, SomeObject]`` is fine, but if the values of the dict may have several types or nested structure, use a submodel rather than a dict.
+So, for instance, ``dict[str, str]`` or ``dict[str, SomeObject]`` is fine, but if the values of the dictionary may have several types or nested structure, use a submodel rather than a dict.
 
 Validators
 ^^^^^^^^^^
@@ -431,7 +433,7 @@ Dataclasses are much simpler and signal that none of the complex validation or d
 
 .. _dataclasses: https://docs.python.org/3/library/dataclasses.html
 
-As with Pydantic models, use Enum classes for any field that's limited to a specific set of values.
+As with Pydantic models, use Enum classes for any field that's limited to a specific set of values, and use submodels instead of dictionaries with mixed value types.
 
 Consider marking dataclasses as frozen and creating a new instance of the dataclass whenever you need to modify one.
 This makes them easier to reason about and avoids subtle bugs when dataclasses are stored in caches or other long-lived data structures.
@@ -445,7 +447,7 @@ They are data structures and data containers, not repositories of code.
 
 The one case where methods on models are appropriate is for data conversion.
 Use custom constructors (written as class methods) to create a data model object by parsing some other representation of that object, and add methods such as ``to_dict`` or ``as_cookie`` to format the contents of the data model into some other representation.
-(Pydantic provides a built-in ``dict`` method, but sometimes the desired dict representation involves some other format conversion that warrants a custom ``to_dict`` method.)
+(Pydantic provides a built-in ``dict`` method, but sometimes the desired dictionary representation involves some other format conversion that warrants a custom ``to_dict`` method.)
 
 These methods should only do format conversion and input validation, not higher-level verification or business logic such as authorization checks.
 
@@ -709,10 +711,11 @@ Typing
 Data types
 ----------
 
-- Dictionaries should ideally only be used in cases where all the keys have a single type and all the values have a single type.
-  Only use dictionaries with mixed value types as short-lived intermediate forms before, for example, JSON or YAML encoding.
-  Prefer internal models in all other cases, particularly when data is being passed into or returned from a function.
+- As in :ref:`pydantic-models`, dictionaries should only be used in cases where all the keys have a single type and all the values have a single type.
+  Dictionaries with mixed value types are only appropriate as short-lived intermediate forms before, for example, JSON or YAML encoding.
+  Prefer internal models in all other cases where a dictionary might be used, particularly when data is being passed into or returned from a function.
   Convert data to the internal model as early as possible and back to a more generic format as late as possible.
+  (There is no need to avoid use of lists, or of dictionaries with consistent types.)
 
 - All times internally should be represented as ``datetime`` objects in the UTC time zone.
   Convert requests to this format and responses from this format using Pydantic validators and JSON encoders.

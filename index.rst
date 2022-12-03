@@ -952,6 +952,19 @@ Data types
 .. _pathlib: https://docs.python.org/3/library/pathlib.html
 .. _os.path: https://docs.python.org/3/library/os.path.html
 
+Modules
+-------
+
+- Always use relative imports for anything contained in the same package.
+  Use absolute imports of package modules from the test suite, and use relative imports inside the test suite of test suite support code.
+
+- The public API of a module (only and exactly those symbols used by other modules) should be listed in ``__all__``.
+  This is required if you are building :ref:`internal API documentation <api-documentation>` because the Sphinx ``automodapi`` plugin uses ``__all__`` to determine what to generate documentation for.
+
+- Functions and variables used only within a module should be prefixed with ``_``, just like private methods (see :ref:`style-classes`).
+
+.. _style-classes:
+
 Classes
 -------
 

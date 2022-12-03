@@ -327,6 +327,7 @@ Its documentation contains `a discussion of the tradeoffs <https://gafaelfawr.ls
 
 When using the YAML configuration mechanism, consider reading the configuration into a Pydantic model that does field validation, and then converting the configuration into a nested set of frozen data classes.
 This requires repeating some of the configuration data model, but it means that settings can be rearranged, canonicalized, and merged with secrets to create a more coherent internal configuration data structure.
+If you take this approach, name the Pydantic model ``Settings`` and the dataclass generated from it ``Config``, to preserve the general rule that the configuration used by the rest of the application comes in a class named ``Config``.
 
 .. _models:
 

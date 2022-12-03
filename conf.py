@@ -7,3 +7,7 @@ https://documenteer.lsst.io/technotes/configuration.html
 """
 
 from documenteer.conf.technote import *  # noqa: F401, F403
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3/", None),
+}

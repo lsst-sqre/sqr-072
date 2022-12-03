@@ -555,7 +555,7 @@ Command-line invocations
 Creating the factory via a dependency works fine for incoming web requests, but if the application also has a command-line interface (to, for example, perform one-off tasks or run background processing), it's awkward to reuse a depedency designed for a web request context to create a factory.
 
 My preferred solution in this case is to add a ``standalone`` class method to the factory that initializes all of the required underlying resources (possibly by calling the internals of various dependencies) and then passes them to the constructor of the ``Factory`` class.
-Generally, this method should be decorated with :py:function:`contextlib.asynccontextmanager` and yield the ``Factory`` instance so that it can then do cleanup and shutdown of its various resources (which normally would be done by the FastAPI lifecycle callback).
+Generally, this method should be decorated with :py:func:`contextlib.asynccontextmanager` and yield the ``Factory`` instance so that it can then do cleanup and shutdown of its various resources (which normally would be done by the FastAPI lifecycle callback).
 
 This class method can then be called from ``cli.py``.
 Here's a (simplified) example from Gafaelfawr_:

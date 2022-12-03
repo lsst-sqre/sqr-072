@@ -37,14 +37,23 @@ authors:
 copyright: "2022, Association of Universities for Research in Astronomy, Inc. (AURA)"
 
 # Description. A short, 1-2 sentence statemement used by document indices.
-description: "Describes the design pattern and code structure the author uses for FastAPI web applications. This is only one possible approach, and is not a standard or requirement."
+description: >-
+  Describes the design pattern and code structure the author uses for FastAPI
+  web applications. This is only one possible approach, and is not a standard
+  or requirement.
 
 # Abstract, if available
-# abstract: >
-#           Write your paragraph
-#           here with multiple lines.
-#
-#           You can have multiple paragraphs too.
+abstract: |
+  SQuaRE has standardized on Python with the FastAPI framework for writing web
+  applications, and suggests a basic application structure via the FastAPI
+  Safir App project template. These tools provide a solid starting foundation
+  but leave numerous architectural decisions unresolved. This tech note
+  collects design patterns and architectural approaches used by the author
+  when constructing FastAPI applications, which may be of interest as a model
+  (or cautionary tale) for others.
+
+  Nothing described here is a project standard or requirement. It is only the
+  personal opinion of the author.
 
 # URL where this document is published by Read the Docs. e.g. http://sqr-001.lsst.codes
 url: "https://sqr-072.lsst.io"

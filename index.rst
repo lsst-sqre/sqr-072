@@ -526,7 +526,7 @@ You will need to pass in a ``Config`` object if you're using YAML-based configur
 With environment-variable-based configuration, you can instead use the global ``config`` object if you want, although it does undermine dependency injection a bit.
 
 The ``set_logger`` function allows you to rebind the logger of an existing factory to include more discovered metadata about a request.
-This is useful if you are encapsulating the factory in a ``Context`` object (see :ref:`request-context`), since you can add a function to the ``Context`` object to rebind the logger and have it replace both the logger it stores and the one in the factory for any subsequent objects it creates.
+This is useful if you are encapsulating the factory in a ``RequestContext`` object (see :ref:`request-context`), since you can add a function to the ``RequestContext`` object to rebind the logger and have it replace both the logger it stores and the one in the factory for any subsequent objects it creates.
 
 The ``Factory`` class should then have methods for each service object (and in some cases other types of objects) that the application needs to create.
 For example:
@@ -577,13 +577,13 @@ Process context
 
 If you find yourself juggling a ton of process-global resources that have to be drawn from a bunch of separate managing dependencies and passed into the constructor of your ``Factory`` class, it may be worthwhile to bundle them together.
 
-Gafaelfawr_ uses two classes, a ``ProcessContext`` class that holds all the process-global resources that should be initialized once and then reused by every request or operation, and a ``Context`` class that's specifically for a single web request and holds request-specific information.
-The ``Context`` object holds the ``ProcessContext`` object and a ``Factory`` instance, and the constructor of the ``Factory`` instance takes a ``ProcessContext`` object plus any additional parameters that are request-specific and need to come from other dependencies.
+Gafaelfawr_ uses two classes, a ``ProcessContext`` class that holds all the process-global resources that should be initialized once and then reused by every request or operation, and a ``RequestContext`` class that's specifically for a single web request and holds request-specific information.
+The ``RequestContext`` object holds the ``ProcessContext`` object and a ``Factory`` instance, and the constructor of the ``Factory`` instance takes a ``ProcessContext`` object plus any additional parameters that are request-specific and need to come from other dependencies.
 
-This allows the ``ContextDependency`` class to provide an ``initialize`` method that does all of the work to set up the ``ProcessContext`` object and cache it so that it can be reused when creating the ``Context`` object for each request.
+This allows the ``ContextDependency`` class to provide an ``initialize`` method that does all of the work to set up the ``ProcessContext`` object and cache it so that it can be reused when creating the ``RequestContext`` object for each request.
 It's equivalent to having a bunch of separate dependencies caching and managing those global resources, but wraps a container around them so that they're easier to keep track of.
 
-The ``ProcessContext`` class should *only* be used as a convenience for managing the structure of the ``Context`` class and creating the ``Factory`` instance.
+The ``ProcessContext`` class should *only* be used as a convenience for managing the structure of the ``RequestContext`` class and creating the ``Factory`` instance.
 Do not succumb to the temptation of passing the ``ProcessContext`` class down into service objects or storage objects.
 That looks convenient, but it means you leak lots of global state into every object and it stops being clear which resources a given service or storage class actually needs.
 That, in turn, will undermine dependency injection and will make it much harder to write certain classes of tests.

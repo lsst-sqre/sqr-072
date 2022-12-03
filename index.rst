@@ -66,16 +66,16 @@ dependencies
     Dependencies should also be used to implement any preprocessing required before handlers can be safely invoked, such as authorization checks.
     Finally, dependencies should be used for code that would otherwise be duplicated in several handlers, such as setting up logging or extracting information from request headers.
 
-handlers
-    FastAPI route handlers.
-    The body of these functions should be as small as possible, containing only the minimum code required to create a service, convert the web request into the appropriate model for calling the service, and convert the result of the service into a response (including error handling).
-    Most of this work should be handled by FastAPI using Pydantic models for the request and response data.
-
 factory
     The factory is responsible for creating services using dependency injection.
     It gathers the config and all of the resources from dependencies and contains the logic for creating service objects, injecting only the resources and configuration that they need.
     It is invoked by the handlers to get the service objects they will call.
     In simpler applications, one can drop the factory and manage the service objects directly via dependencies, but this creates an excessive number of dependencies and tediously long argument lists to handlers in complex applications.
+
+handlers
+    FastAPI route handlers.
+    The body of these functions should be as small as possible, containing only the minimum code required to create a service, convert the web request into the appropriate model for calling the service, and convert the result of the service into a response (including error handling).
+    Most of this work should be handled by FastAPI using Pydantic models for the request and response data.
 
 services
     The service objects are the heart of the application and contain the business logic.
@@ -262,6 +262,8 @@ For example:
 
 The drawback of this method of configuration is that environment variables cannot easily handle complex data structures.
 If the application requires complex data in its configuration, such as nested dictionaries, use the YAML configuration approach instead.
+
+.. _yaml-config:
 
 YAML file
 ---------
@@ -494,6 +496,100 @@ Add methods starting with ``to_`` to format the contents of the data model into 
 
 These methods should only do format conversion and input validation, not higher-level verification or business logic such as authorization checks.
 
+.. _factory:
+
+Factory
+=======
+
+If an application is at all complex (several services and storage classes, for example, or multiple process-global resources such as database or Redis connection pools, HTTP clients, and so forth), use a factory object to construct service objects.
+
+A basic factory object looks like this (the details of the resources passed in will vary):
+
+.. code-block:: python
+
+   class Factory:
+       def __init__(
+           self,
+           *,
+           config: Config,
+           session: async_scoped_session,
+           logger: BoundLogger,
+       ) -> None:
+           self._config = config
+           self._session = session
+           self._logger = logger
+
+       def set_logger(self, logger: BoundLogger) -> None:
+           self._logger = logger
+
+You will need to pass in a ``Config`` object if you're using YAML-based configuration (see :ref:`yaml-config`).
+With environment-variable-based configuration, you can instead use the global ``config`` object if you want, although it does undermine dependency injection a bit.
+
+The ``set_logger`` function allows you to rebind the logger of an existing factory to include more discovered metadata about a request.
+This is useful if you are encapsulating the factory in a ``Context`` object (see :ref:`request-context`), since you can add a function to the ``Context`` object to rebind the logger and have it replace both the logger it stores and the one in the factory for any subsequent objects it creates.
+
+The ``Factory`` class should then have methods for each service object (and in some cases other types of objects) that the application needs to create.
+For example:
+
+.. code-block:: python
+
+   def create_some_service(self) -> SomeService:
+       storage = SomeStorage(self._config, self._session)
+       return SomeService(storage, self._logger)
+
+The factory is responsible for creating the storage objects used by the service and injecting them into the service object as constructor parameters.
+Note also how it stores various global and per-context state, such as a bound logger and a database session, and injects them as dependencies where necessary.
+See :ref:`dependency-injection` for more details.
+
+You will then create a new ``Factory`` instance for each request, generally via a dependency.
+That dependency will depend on other dependencies that provide things like the database session, the logger, and the other objects that need to be injected into the service and storage objects at creation time.
+The handlers, in turn, get the factory from a dependency and then call it as needed to create the service objects they need.
+
+The alternative to this factory pattern is to write dependencies that create service objects directly and have handlers depend on those.
+That also works, but it can be tedious and awkward to write lots of dependencies in a complex application, as opposed to maintaining one factory class that is made available to every handler via a dependency.
+It can also get unwieldy in handlers if a given handler requires a lot of different service objects, which sometimes happens.
+
+Command-line invocations
+------------------------
+
+Creating the factory via a dependency works fine for incoming web requests, but if the application also has a command-line interface (to, for example, perform one-off tasks or run background processing), it's awkward to reuse a depedency designed for a web request context to create a factory.
+
+My preferred solution in this case is to add a ``standalone`` class method to the factory that initializes all of the required underlying resources (possibly by calling the internals of various dependencies) and then passes them to the constructor of the ``Factory`` class.
+Generally, this method should be decorated with :py:function:`contextlib.asynccontextmanager` and yield the ``Factory`` instance so that it can then do cleanup and shutdown of its various resources (which normally would be done by the FastAPI lifecycle callback).
+
+This class method can then be called from ``cli.py``.
+Here's a (simplified) example from Gafaelfawr_:
+
+.. code-block:: python
+
+   @main.command()
+   @run_with_asyncio
+   async def maintenance() -> None:
+       """Perform background maintenance."""
+       config = await config_dependency()
+       async with Factory.standalone(config) as factory:
+           token_service = factory.create_token_service()
+           await token_service.expire_tokens()
+           await token_service.truncate_history()
+
+Process context
+---------------
+
+If you find yourself juggling a ton of process-global resources that have to be drawn from a bunch of separate managing dependencies and passed into the constructor of your ``Factory`` class, it may be worthwhile to bundle them together.
+
+Gafaelfawr_ uses two classes, a ``ProcessContext`` class that holds all the process-global resources that should be initialized once and then reused by every request or operation, and a ``Context`` class that's specifically for a single web request and holds request-specific information.
+The ``Context`` object holds the ``ProcessContext`` object and a ``Factory`` instance, and the constructor of the ``Factory`` instance takes a ``ProcessContext`` object plus any additional parameters that are request-specific and need to come from other dependencies.
+
+This allows the ``ContextDependency`` class to provide an ``initialize`` method that does all of the work to set up the ``ProcessContext`` object and cache it so that it can be reused when creating the ``Context`` object for each request.
+It's equivalent to having a bunch of separate dependencies caching and managing those global resources, but wraps a container around them so that they're easier to keep track of.
+
+The ``ProcessContext`` class should *only* be used as a convenience for managing the structure of the ``Context`` class and creating the ``Factory`` instance.
+Do not succumb to the temptation of passing the ``ProcessContext`` class down into service objects or storage objects.
+That looks convenient, but it means you leak lots of global state into every object and it stops being clear which resources a given service or storage class actually needs.
+That, in turn, will undermine dependency injection and will make it much harder to write certain classes of tests.
+
+The use of ``ProcessContext``, if you choose to use this pattern, should stop at the ``Factory`` class, and the ``Factory`` class should initialize the objects it creates with only the specific resources they need.
+
 .. _handlers:
 
 Handlers
@@ -655,6 +751,8 @@ If the handler has a full data structure about the user, it should *not* pass in
 Instead, it should pass in only the username, so that it's obvious at both the call site and the implementation site that only the username is needed or used.
 
 This may seem like a minor and tedious point, but strictly following this design for a minimal API that clearly advertises what data it uses and acts on will help keep complexity isolated and contained within the application.
+
+.. _dependency-injection:
 
 Dependency injection
 --------------------
@@ -1044,6 +1142,8 @@ I include that page in the top-level navigation bar as "REST API".
    `REST API <rest.html>`__
 
 (Lines have been wrapped to make the code sample more readable in this tech note, but normally this would use the one line per sentence convention.)
+
+.. _api-documentation:
 
 Internal API documentation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

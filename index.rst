@@ -409,13 +409,15 @@ For example, it's more convenient to use :py:class:`datetime.timedelta` for dura
 But for input, the most convenient duration format is often an integer number of seconds.
 The following validator will handle this:
 
-def normalize_timedelta(v: int | None) -> timedelta | None:
-    if v is None:
-        return v
-    elif isinstance(v, int):
-        return timedelta(seconds=v)
-    else:
-        raise ValueError("invalid timedelta (should be in seconds)")
+.. code-block:: python
+
+   def normalize_timedelta(v: int | None) -> timedelta | None:
+       if v is None:
+           return v
+       elif isinstance(v, int):
+           return timedelta(seconds=v)
+       else:
+           raise ValueError("invalid timedelta (should be in seconds)")
 
 It would then be used as follows:
 

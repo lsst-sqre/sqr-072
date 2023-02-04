@@ -25,7 +25,7 @@ Readers are encouraged to examine those applications and draw their own conclusi
 Python version
 ==============
 
-Unless there is a specific hard requirement, do not support Python versions older than Python 3.10.
+Unless there is a specific hard requirement, do not support Python versions older than Python 3.11.
 
 In general, FastAPI web applications should update to the current release of Python shortly after it is released and do not need to support more than one version of Python except during that transition period.
 I update to a newer version of Python once it becomes the default in Debian unstable.
@@ -1272,8 +1272,7 @@ The FastAPI Safir App template uses setuptools_scm_ to generate the application 
 Each release should also be a GitHub release made at the same time.
 The title of the release should also be the version number.
 
-The body of the release should be the :ref:`changelog` entry for that release if the application maintains a change log.
-If not, it should be a human-readable description of the changes in that release, generally as a bullet list.
-Omit routine updates to the package dependencies and similar housekeeping that doesn't result in user-visible changes to application behavior.
+To create the text of the release description, tell GitHub to generate the release notes.
+If the package doesn't have a :ref:`changelog` file, that's all you need to do, although I will sometimes add a brief description of the purpose of the release above the list of merged PRs.
 
-If you follow the formatting conventions documented in :ref:`changelog`, you can cut and paste the change log entry into the text box for the release description in the GitHub web interface.
+If the package does have a :ref:`changelog` file using the documented formatting conventions, cut and paste the change log entry above the auto-generated PR summary and add one additional ``#`` to the heading for GitHub-generated release summary so that the headling levels match.

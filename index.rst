@@ -1242,6 +1242,10 @@ There will only be backward-incompatible changes for major version bumps and new
 Unlike the normal convention of one sentence per line, each change log bullet point, no matter how many sentences long, should be a single line.
 This allows the change log to be cut and pasted into the text box for the GitHub release description with no formatting changes.
 
+There is no need to attribute changes to specific project members.
+If the change was contributed by someone outside the project, give them credit.
+I use "Patch from <name>" for merged PRs and "Thanks, <name>" for changes made in response to bug reports.
+
 While a release is still being prepared, the date in the version header should instead be ``(unreleased)``.
 Write new change log entries and update the version number based on semantic versioning as changes are merged to save time and ensure a complete change log when preparing the release.
 

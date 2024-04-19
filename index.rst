@@ -1,11 +1,12 @@
-:tocdepth: 1
+###############################################
+One design pattern for FastAPI web applications
+###############################################
 
-Abstract
-========
+.. abstract::
 
-SQuaRE has standardized on Python with the FastAPI_ framework for writing web applications, and suggests a basic application structure via the `FastAPI Safir App`_ project template.
-These tools provide a solid starting foundation but leave numerous architectural decisions unresolved.
-This tech note collects design patterns and architectural approaches used by the author when constructing FastAPI applications, which may be of interest as a model (or cautionary tale) for others.
+   SQuaRE has standardized on Python with the FastAPI_ framework for writing web applications, and suggests a basic application structure via the `FastAPI Safir App`_ project template.
+   These tools provide a solid starting foundation but leave numerous architectural decisions unresolved.
+   This tech note collects design patterns and architectural approaches used by the author when constructing FastAPI applications, which may be of interest as a model (or cautionary tale) for others.
 
 .. _FastAPI: https://fastapi.tiangolo.com/
 .. _FastAPI Safir App: https://github.com/lsst/templates/tree/main/project_templates/fastapi_safir_app
@@ -47,8 +48,8 @@ This architecture also makes extensive use of data objects (objects that are onl
 Here is the high-level architecture in diagram form.
 In this diagram, an incoming request from a user flows from top to bottom, and the response flows from bottom to top.
 
-.. figure:: /_static/architecture.svg
-   :name: Architecture overview
+.. mermaid:: architecture.mmd
+   :caption: Architecture overview
 
 Not shown in the diagram is that most communication between the handler, service, and storage layers (the heart of the application) is done using *models*, which is the term we use for data objects.
 

@@ -1,0 +1,25 @@
+graph TB
+    requests([requests])
+    config
+    command([command])
+    cli
+    dependencies
+    handlers
+    factory
+    services
+    storage
+    datastore[(datastore)]
+
+    requests --> dependencies
+    requests --> handlers
+    dependencies --> handlers
+    handlers --> services
+    services --> storage
+    storage --> datastore
+
+    config --> factory
+    factory --> handlers
+
+    command --> cli
+    factory --> cli
+    cli --> services

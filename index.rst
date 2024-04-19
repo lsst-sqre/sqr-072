@@ -5,7 +5,7 @@ One design pattern for FastAPI web applications
 .. abstract::
 
    SQuaRE has standardized on Python with the FastAPI_ framework for writing web applications, and suggests a basic application structure via the `FastAPI Safir App`_ project template.
-   These tools provide a solid starting foundation but leave numerous architectural decisions unresolved.
+   These tools provide a solid starting foundation but leave many architectural decisions unresolved.
    This tech note collects design patterns and architectural approaches used by the author when constructing FastAPI applications, which may be of interest as a model (or cautionary tale) for others.
 
 .. _FastAPI: https://fastapi.tiangolo.com/
@@ -26,10 +26,10 @@ Readers are encouraged to examine those applications and draw their own conclusi
 Python version
 ==============
 
-Unless there is a specific hard requirement, do not support Python versions older than Python 3.11.
+Unless there is a specific hard requirement, do not support Python versions older than Python 3.12.
 
 In general, FastAPI web applications should update to the current release of Python shortly after it is released and do not need to support more than one version of Python except during that transition period.
-I update to a newer version of Python once it becomes the default in Debian unstable.
+I usually update to a newer version of Python once it becomes the default in Debian unstable.
 
 All supported versions should be tested with GitHub Actions.
 Don't forget to update GitHub Actions configuration when changing the supported version.
@@ -46,14 +46,14 @@ This architecture also makes extensive use of data objects (objects that are onl
 .. _hexagonal architecture: https://fideloper.com/hexagonal-architecture
 
 Here is the high-level architecture in diagram form.
-In this diagram, an incoming request from a user flows from top to bottom, and the response flows from bottom to top.
+In this diagram, incoming requests or command-line commands from a user flows from top to bottom, and the response flows from bottom to top.
 
 .. mermaid:: architecture.mmd
    :caption: Architecture overview
 
-Not shown in the diagram is that most communication between the handler, service, and storage layers (the heart of the application) is done using *models*, which is the term we use for data objects.
+Not shown in the diagram is that most communication between the handler, service, and storage layers (the heart of the application) is done using *models*, which is the term we (and Pydantic) use for data objects.
 
-The components in this model are:
+The components in this architecture are:
 
 config
     The external configuration of the application.
@@ -78,6 +78,11 @@ handlers
     The body of these functions should be as small as possible, containing only the minimum code required to create a service, convert the web request into the appropriate model for calling the service, and convert the result of the service into a response (including error handling).
     Most of this work should be handled by FastAPI using Pydantic models for the request and response data.
 
+cli
+    Click_ command-line handlers.
+    These are the equivalent of FastAPI route handlers for command-line invocations.
+    Not every application will have a command-line tool, but those who do should use Click command functions similar to FastAPI route handlers: keep the body as small as possible, convert the request into an appropriate model, call into a service, and then display the result if appropriate.
+
 services
     The service objects are the heart of the application and contain the business logic.
     The methods on service objects are actions: get this, modify that, delete this other thing.
@@ -101,7 +106,7 @@ The two main goals of this application structure are separation of concerns and 
 
 For separation of concerns, this structure allows clean separation between the code that converts an HTTP request into an internal call (the handler), the business logic that makes decisions about what should happen (the service), and the code to convert between internal data structures and external storage (the storage object).
 Each of these can change independently of the other or gain multiple implementations with minimum impact on the rest of the application.
-For example, one could add a command-line interface (or GraphQL interface, gRPC interface, Kafka topic handler, or async worker) that takes some of the same actions as the web UI without duplicating code, since both would call into the services layer.
+For example, one could add a command-line interface, GraphQL interface, gRPC interface, Kafka topic handler, or async worker that takes some of the same actions as the web UI without duplicating code, since both would call into the services layer.
 Or one could replace the database backend with minimum impact on the rest of the application, since all code for dealing with the database is contained in the storage layer.
 
 I've found that this separation of concerns also helps me write better code by focusing my mindset when writing each piece of code.
@@ -123,30 +128,28 @@ It's still often better to write most tests as end-to-end tests using the REST A
 File layout
 ===========
 
-Packages follow the layout created by the FastAPI Safir App template, except that they use the pure ``pyproject.toml`` build system configuration with an empty ``setup.cfg``, similar to the `SQuaRE PyPI Package`_ template.
-(The empty ``setup.cfg`` appears to currently still be required for application packages.)
+Packages follow the layout created by the FastAPI Safir App template and use only :file:`pyproject.toml` to define the build system.
 
-.. _SQuaRE PyPI Package: https://github.com/lsst/templates/tree/main/project_templates/square_pypi_package
-
-Any supporting scripts for building the Docker image, and any scripts installed in the Docker image for things like startup are kept in the ``scripts`` directory.
-Otherwise, all code is in either ``src/<package-name>`` or ``tests``.
+Any supporting scripts for building the Docker image, and any scripts installed in the Docker image for things like startup, are kept in the :file:`scripts` directory.
+Otherwise, all code is in either :file:`src/{package-name}` or :file:`tests`.
 
 The layout of the Python package roughly matches the components of the architecture described above.
-Dependencies go under ``dependencies``, handlers under ``handlers``, middleware (if needed) under ``middleware``, models under ``models``, services under ``services``, and storage objects under ``storage``.
+Dependencies go under :file:`dependencies`, handlers under :file:`handlers`, middleware (if needed) under :file:`middleware`, models under :file:`models`, services under :file:`services`, and storage objects under :file:`storage`.
 
 Some additional conventions:
 
-``cli.py``
+:file:`cli.py`
     Contains the command-line interface to the application, if any.
     If the application has no functionality other than running as a web service, this isn't necessary, since the application is started via uvicorn_ directly.
     But it's often convenient to have a command-line interface to generate secrets or perform other functions.
 
-.. _uvicorn: https://www.uvicorn.org/
+    .. _uvicorn: https://www.uvicorn.org/
 
     If there is a command-line interface, it should use Click_ with a subcommand structure and a standard ``help`` command
-    See `Gafaelfawr's <https://github.com/lsst-sqre/gafaelfawr/blob/6f789ca8be28dc3fa5ccb513588afe06249998ec/src/gafaelfawr/cli.py#L47>`__ for an example.
+    Use the Safir :py:func:`~safir.click.display_help` function to implement the ``help`` command.
+    See the `Safir documentation <https://safir.lsst.io/user-guide/click.html#implementing-a-help-command>`__ for more details.
 
-.. _Click: https://click.palletsprojects.com/en/latest/
+    .. _Click: https://click.palletsprojects.com/en/latest/
 
     If the application uses SQL storage, the ``init`` command should set up the schema for the application in an empty database.
     Consider implementing a ``delete-all-data`` command to erase the database, since sometimes one wants to reset an installation of the application that uses a cloud SQL database.
@@ -154,60 +157,58 @@ Some additional conventions:
     If the application has full documentation, the ``openapi-schema`` command should print the OpenAPI_ schema for its REST interface to standard output (via the ``get_openapi`` function `provided by FastAPI <https://fastapi.tiangolo.com/advanced/extending-openapi/?h=#the-normal-process>`__).
     See :ref:`documentation` for more details.
 
-.. _OpenAPI: https://spec.openapis.org/oas/latest.html
+    .. _OpenAPI: https://spec.openapis.org/oas/latest.html
 
-``config.py``
+:file:`config.py`
     Contains the configuration parsing code.
-    This module should export a ``Config`` (or, in some pre-Python-3.11 cases, ``Configuration``) class that holds all of the application configuration.
+    This module should export a ``Config`` class that holds all of the application configuration.
     See :ref:`configuration` for details on the two options for application configuration.
 
-``constants.py``
+:file:`constants.py`
     Any constants used in the application source.
     Collect all of these in one file rather than scattering them through modules unless they are very, very specific to a module and highly unlikely to ever change.
     This file then collects things that may eventually need to become configuration settings.
 
-``exceptions.py``
+:file:`exceptions.py`
     Any custom exceptions for this application.
     (Arguably, exceptions could be thought of as models, but I keep them separate because their function in a program is so different than a model.)
 
-    It may be useful to define an exception parent class and then install a global handler for that exception class that generates the correct HTTP error code and body structure.
-    Then, all handlers and even services can raise that exception without catching it, and the code to translate it into a valid HTTP error reply can be shared.
-    Good candidates for this are a ``ValidationError`` that generates a 422 error compatible with FastAPI and a ``PermissionDeniedError`` that generates a 403 error.
+    Exceptions that represent invalid requests should inherit from :py:exc:`~safir.fastapi.ClientRequestError`.
+    See the `Safir documentation <https://safir.lsst.io/user-guide/fastapi-errors.html>`__ for more details.
+
+    Consider making any other exceptions that come with context that is valuable for debugging inherit from :py:exc:`~safir.slack.blockkit.SlackException` and define an appropriate structure for Slack messages.
+    This allows for detailed error reporting to Slack.
+    See the `Safir documentation <https://safir.lsst.io/user-guide/slack-webhook.html#reporting-an-exception-to-a-slack-webhook>`__ for more details.
 
     Exception class names should generally end in ``Error`` (not ``Exception``) following :pep:`8`.
 
     It's often a good idea to define custom constructors for exceptions that take specific, well-defined, typed data and then construct the human-readable message in the exception code, for better code sharing.
 
-    For exceptions designed to generate structured JSON bodies as part of HTTP errors, define a ``to_dict`` method that translates the exceptions into a dictionary suitable for serializing to JSON.
-
-``factory.py``
+:file:`factory.py`
     Contains the factory object used to construct services and their dependencies.
     Use of the factory pattern is optional and may not be appropriate for smaller applications.
 
-``main.py``
+:file:`main.py`
     Defines the FastAPI application.
     This should either create a global variable named ``app`` or a function named ``create_app``, depending on whether all application initialization can be done at module load time.
     The main case where a ``create_app`` function may be required is if the application object depends on the configuration and the configuration is loaded from a YAML file (see :ref:`configuration`).
     Using a function then allows delaying loading the configuration until a test case has a chance to switch to a different configuration file than the default.
 
-    This module should register all of the routers, set up any middleware, set up any exception handlers, and handle startup and shutdown events.
+    This module should register all of the routers, set up any middleware, set up any exception handlers, and handle lifespan events.
+    See the `FastAPI documentation <https://fastapi.tiangolo.com/advanced/events/?h=lifespan>`__ for more details about lifespan events.
     Exception handlers can be defined in this same module unless they are complex (they normally won't be).
-    The startup and shutdown handlers are conventionally named ``startup_event`` and ``shutdown_event``, respectively, and should handle initializing and closing any dependencies that hold state or external connections.
 
-``util.py``
-    Random utility functions used by the rest of the code.
-    This should only contain simple functions and should not contain any business logic.
-    All business logic should go into a service object instead.
-    This is a good place to put Pydantic validators that are shared by multiple models.
-
-If this application uses a SQL database for storage, the SQLAlchemy_ ORM models should go into a directory named ``schema``, and the ``__init__.py`` file for that directory should import all of the models.
+If this application uses a SQL database for storage, the SQLAlchemy_ ORM models should go into a directory named :file:`schema`, and the :file:`__init__.py` file for that directory should import all of the models.
 
 .. _SQLAlchemy: https://www.sqlalchemy.org/
 
-If this application includes a Kubernetes operator, the Kopf_ handlers should go into a directory named ``operator``, and the ``__init__.py`` file for that directory should import all of the handlers.
+If this application includes a Kubernetes operator, the Kopf_ handlers should go into a directory named :file:`operator`, and the :file:`__init__.py` file for that directory should import all of the handlers.
 This allows the ``operator`` module to be used as the Kopf entry point.
 
 .. _Kopf: https://kopf.readthedocs.io/en/stable/
+
+Avoid grab-bag utility modules such as :file:`util.py`.
+Instead, prefer to add additional modules at the top level of the application source that provide all functions and classes related to an area of functionality: :file:`cache.py` for caching utilities, :file:`pydantic.py` for Pydantic validators and helper functions, etc.
 
 .. _configuration:
 
@@ -221,21 +222,33 @@ Environment variables
 
 The environment variable approach is used by the FastAPI Safir App template and is preferred for most applications.
 Using environment variables makes it very easy to configure through Kubernetes, which has good support for injecting environment variables from secrets and ``ConfigMap`` objects.
-With this approach, the ``Config`` class defined in ``config.py`` will look something like this (partial):
+With this approach, the ``Config`` class defined in :file:`config.py` will look something like this (partial):
 
 .. code-block:: python
 
+   from pydantic import Field, HttpUrl
+   from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
    class Config(BaseSettings):
-       """Configuration for datalinker."""
+       cutout_sync_url: HttpUrl = Field(
+          ...,
+          title="URL to SODA sync API",
+       )
 
-       cutout_url: str = Field("", env="DATALINKER_CUTOUT_SYNC_URL")
-       """The URL to the sync API for the SODA service that does cutouts."""
+       model_config = SettingsConfigDict(
+           env_prefix="DATALINKER_", case_sensitive=False
+       )
 
-Note the default for when the environment variable isn't set.
-There should always be a default so that one doesn't have to set environment variables in order to run the test suite, and so that the module load doesn't fail if an environment variable is not set.
-It's fine for the default to be invalid and therefore cause failures later if it's not changed, since this still gives the test suite an opportunity to override it.
+``model_config`` tells the Pydantic settings module to get the settings from enviroment variables with the same name as each setting, prefixed with ``DATALINKER_``.
 
-When using this configuration approach, the ``config.py`` module should then create a global configuration object on module load:
+If there is no meaningful default, you will need to set the environment variable to some suitable value for the test suite when running tests.
+For the above example, add the following to :file:`tox.ini` under ``[testenv]``::
+
+    setenv =
+        DATALINKER_CUTOUT_SYNC_URL = https://example.com/api/cutout
+
+When using this configuration approach, the :file:`config.py` module should then create a global configuration object on module load:
 
 .. code-block:: python
 
@@ -248,18 +261,30 @@ Any part of the application that needs access to the configuration can then use:
 
    from .config import config
 
-Since everything uses the same global configuration object, that object can be temporarily changed in test fixtures to override some value.
+Since everything uses the same global configuration object, that object can be temporarily changed in test fixtures to override some value using monkeypatch_.
 This is the preferred way to set configuration parameters for tests rather than setting environment variables.
+
+.. _monkeypatch: https://docs.pytest.org/en/latest/how-to/monkeypatch.html
+
 For example:
 
 .. code-block:: python
 
+   from collections.abc import AsyncIterator
+   from pathlib import Path
+
+   import pytest
+   import pytest_asyncio
+   from asgi_lifespan import LifespanManager
+   from fastapi import FastAPI
+
+
    @pytest_asyncio.fixture
-   async def app() -> AsyncIterator[FastAPI]:
-       config.tap_metadata_dir = str(Path(__file__).parent / "data")
+   async def app(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[FastAPI]:
+       metadata_dir = Path(__file__).parent / "data"
+       monkeypatch.setattr(config, "tap_metadata_dir", str(metadata_dir))
        async with LifespanManager(main.app):
            yield main.app
-       config.tap_metadata_dir = ""
 
 The drawback of this method of configuration is that environment variables cannot easily handle complex data structures.
 If the application requires complex data in its configuration, such as nested dictionaries, use the YAML configuration approach instead.
@@ -274,10 +299,18 @@ The application then uses a dependency to read and cache that file:
 
 .. code-block:: python
 
+   import os
+   from pathlib import Path
+
+   from ..config import Config
+   from ..constants import CONFIG_PATH
+
+
    class ConfigDependency:
        def __init__(self) -> None:
-           self._config_path = os.getenv("GAFAELFAWR_CONFIG_PATH", CONFIG_PATH)
-           self._config: Optional[Config] = None
+           config_path = os.getenv("GAFAELFAWR_CONFIG_PATH", CONFIG_PATH)
+           self._config_path = Path(config_path)
+           self._config: Config | None = None
 
        async def __call__(self) -> Config:
            return self.config()
@@ -287,7 +320,7 @@ The application then uses a dependency to read and cache that file:
                self._config = Config.from_file(self._config_path)
            return self._config
 
-       def set_config_path(self, path: str) -> None:
+       def set_config_path(self, path: Path) -> None:
            self._config_path = path
            self._config = Config.from_file(path)
 
@@ -298,37 +331,63 @@ The application then uses a dependency to read and cache that file:
 This allows the path to the configuration file to be overridden via an environment variable or via a call to the ``set_config_path`` method (from, say, a command-line flag), which makes it easier to run a local test version of the application.
 The test suite can then use ``set_config_path`` to set the configuration path to a file shipped with or generated by the test suite.
 
-The ``from_file`` method on the ``Config`` object would then look something like this:
+The ``model_config`` attribute and ``from_file`` method on the ``Config`` object would then look something like this:
 
 .. code-block:: python
 
-   @classmethod
-   def from_file(cls, path: str) -> Self:
-       with open(path, "r") as f:
-           return cls.parse_obj(yaml.safe_load(f))
+   from pathlib import Path
+   from typing import Self
 
-This uses Python 3.11 syntax.
-If you need to support older versions of Python, the function should be annotated to return ``Config`` instead.
-However, if you also need to use the nested ``Config`` class to configure Pydantic (to support camel-case attributes, for instance), you may need to change the name of your configuration class to ``Configuration`` to avoid naming conflicts with the nested class in the typing of the ``from_file`` function.
-This problem goes away with Python 3.11 and the ``Self`` syntax.
+   import yaml
+   from pydantic.alias_generators import to_camel
+   from pydantic_settings import BaseSettings
+
+
+   class Config(BaseSettings):
+       ...
+
+       model_config = SettingsConfigDict(
+           alias_generator=to_camel, extra="forbid", populate_by_name=True
+       )
+
+       @classmethod
+       def from_file(cls, path: Path) -> Self:
+           with open(path, "r") as f:
+               return cls.model_validate(yaml.safe_load(f))
+
+The purpose of ``model_config`` is to allow settings to be given in camel-case instead of snake-case.
+This allows a portion of the :file:`values.yaml` file for a Helm chart, which by convention always uses camel-case, to be put verbatim in a ``ConfigMap`` object and then injected as the YAML configuration file, while still using snake-case for configuration settings internally in the application.
+This configuration also rejects unknown fields, which will catch typos and other problems with the configuration file on startup.
+
+If particular configuration settings are secrets, configure those to come from the environment.
+For example:
+
+.. code-block:: python
+
+   from pydantic import Field
+   from pydantic_settings import BaseSettings
+
+
+   class Config(BaseSettings):
+       ...
+
+       slack_webhook: str | None = Field(
+           None,
+           title="Slack webhook for alerts",
+           description=(
+               "If set, failures creating user labs or file servers and any"
+               " uncaught exceptions in the Nublado controller will be"
+               " reported to Slack via this webhook"
+           ),
+           validation_alias="NUBLADO_SLACK_WEBHOOK",
+       )
+
+Here, the value ``slackWebhook`` can be omitted from the YAML file, and instead the Kubernetes deployment would set the environment variable ``NUBLADO_SLACK_WEBHOOK`` from the value of a secret.
+When the configuration file is parsed, the environment variables referenced by settings such as this will override the YAML configuration file.
 
 I prefer not to mix the environment variable and the YAML file approaches, since I find that confusing.
-When using YAML for configuration, I get all of the configuration from the YAML file and not from environment variables.
+When using YAML for configuration, I get all of the configuration from the YAML file and not from environment variables, except for secrets.
 (A small number of special exceptions can be made if there are specific settings that need to be easily overridden for CI.)
-
-The YAML file approach makes secret handling more difficult.
-Kubernetes supports mixing environment variables from secrets and from a ``ConfigMap``, but doesn't support injecting secrets into a ``ConfigMap`` object itself.
-This means that the configuration file mounted in the container, which comes from a ``ConfigMap``, cannot easily contain secrets.
-
-There are two possible approaches; mount the secrets as separate files (such as by mounting the entire ``Secret`` resource for the application as a directory) and then put the paths to the secrets into the configuration YAML, or get only the secrets and not any other configuration from environment variables.
-The latter is simpler; the former has the advantage that secrets can be injected into complex data structures and portions of the configuration can be passed into specific components.
-
-Gafaelfawr_, which is my one package that uses YAML configuration, uses the first approach and mounts all secrets as separate files.
-Its documentation contains `a discussion of the tradeoffs <https://gafaelfawr.lsst.io/dev/configuration.html#passing-secrets>`__.
-
-When using the YAML configuration mechanism, consider reading the configuration into a Pydantic model that does field validation, and then converting the configuration into a nested set of frozen data classes.
-This requires repeating some of the configuration data model, but it means that settings can be rearranged, canonicalized, and merged with secrets to create a more coherent internal configuration data structure.
-If you take this approach, name the Pydantic model ``Settings`` and the dataclass generated from it ``Config``, to preserve the general rule that the configuration used by the rest of the application comes in a class named ``Config``.
 
 .. _models:
 
@@ -346,132 +405,163 @@ It also includes anything returned by a handler in a response body, including er
 Pydantic models
 ---------------
 
-Since the Pydantic models are used to generate the API documentation, fields in models should always use the ``Field`` constructor and include as much information as possible about that field.
-For example:
+Declaring fields
+^^^^^^^^^^^^^^^^
+
+There are two ways to define the fields of a Pydantic model.
+The new way uses :py:obj:`~typing.Annotated`:
+
+.. code-block:: python
+
+   name: Annotated[
+       str,
+       Field(
+           title="Name of the group",
+           examples=["g_special_users"],
+           min_length=1,
+           regex=GROUPNAME_REGEX,
+       ),
+   ]
+
+Since the field definition is a type, this works like any other class variable declaration and a default value can be assigned with ``=``.
+
+The older way of defining a field is to use the Pydantic ``Field`` constructor:
 
 .. code-block:: python
 
     name: str = Field(
         ...,
         title="Name of the group",
-        example="g_special_users",
+        examples=["g_special_users"],
         min_length=1,
         regex=GROUPNAME_REGEX,
     )
 
-As shown in this example, make as much use as possible of the built-in validation support in Pydantic so that Pydantic plus FastAPI will do basic validity checks on any user input.
+Either work and neither offer that significant of advantages currently, but :py:obj:`~typing.Annotated` is the more standard approach in Python and is recommended for new projects.
 
-``title`` must always be set to a short English description of the field (no period at the end).
-``example`` should normally be set.
-If there is a need for longer discussion than will fit in the few words available in ``title``, add ``description``, which can be multiple regular sentences and can even use Markdown formatting if needed.
-For example:
+Field metadata
+^^^^^^^^^^^^^^
 
-.. code-block:: python
+In either case, metadata about the field should be provided as named arguments to ``Field``.
+Docstrings can be used instead for internal models, but I recommend always using the above syntax for consistency.
 
-    token_type: TokenType = Field(
-        ...,
-        description=(
-            "Class of token, chosen from:\n\n"
-            "* `session`: An interactive user web session\n"
-            "* `user`: A user-generated token that may be used"
-            " programmatically\n"
-            "* `notebook`: The token delegated to a Jupyter notebook for"
-            " the user\n"
-            "* `internal`: A service-to-service token used for internal"
-            " sub-calls made as part of processing a user request\n"
-            "* `service`: A service-to-service token used for internal calls"
-            " initiated by services, unrelated to a user request\n"
-        ),
-        title="Token type",
-        example="session",
-    )
+``title`` must always be set to a short English description of the field.
+This should have no period at the end and ideally should be no more than two or three words.
 
-As you can see from that example, while FastAPI tries to produce good documentation from enums, it's often not clear enough and one may need to hand-craft a good description.
+``examples`` should be set to a list of example values.
+It can be omitted for fields whose type is another model.
+It is used to populate example input in API documentation.
+Normally, only one example per field is sufficient, but the value must still be wrapped in a list.
 
-Any field in a model that takes a limited set of values should be defined as a type inheriting from ``Enum``.
-I generally do not make the class also inherit from ``str`` and instead explicitly add ``.value`` to get the string value of an enum.
+If there is a need for longer discussion than will fit in the few words available in ``title``, add ``description``, which can be multiple regular sentences.
+Putting Markdown into ``description`` may work with generated API documentation, it does not work well with the autodoc_pydantic_ Sphinx plugin, which expects ``description`` to be in reStructuredText.
+Where relevant, I write ``description`` in reStructuredText and live with the less-than-ideal rendering in API documentation.
+
+.. _autodoc_pydantic: https://pypi.org/project/autodoc_pydantic/
+
+Field types
+^^^^^^^^^^^
+
+Any field in a model that takes a limited set of values should be defined as a type inheriting from :py:obj:`~enum.Enum`.
+I generally do not make the class also inherit from :py:obj:`str` and instead explicitly add ``.value`` to get the string value of an enum.
 This ensures that the enum values can't be compared directly to arbitrary strings without mypy complaining, which avoids a class of bugs.
 This is a matter of personal taste, however.
 
 There's generally no need for type aliases in models (or elsewhere).
 
-For complex types, ``list`` is fine and ``list[SomeModel]`` or ``list[str]`` is an entirely reasonable type for a model attribute to have.
-Be more careful wtih ``dict``.
-The rule of thumb is that a ``dict`` type is fine if and only if all keys have the same type and all values have the same type.
-So, for instance, ``dict[str, str]`` or ``dict[str, SomeObject]`` is fine, but if the values of the dictionary may have several types or nested structure, use a submodel rather than a dict.
+For lists of values, a parameterized ``list`` is fine; ``list[SomeModel]`` or ``list[str]`` is an entirely reasonable type for a model attribute to have.
+
+For dictionaries, consider whether the dictionary should instead be a model.
+The rule of thumb is that a ``dict`` type is fine if and only if all of the following are true: all keys have the same type, all values have the same type, and the range of possible keys is not known in advance.
+So, for instance, ``dict[str, str]`` or ``dict[str, SomeObject]`` is fine, but if the values of the dictionary may have several types or nested structure, use a model rather than a dictionary.
+Similarly, if the dictionary keys are drawn from a small, fixed set, use a model.
 
 Validators
 ^^^^^^^^^^
 
-There are often cases where the input from a user won't necessarily be in the same form that the rest of the application expects.
-In those cases, use validators to perform the type checking and conversion.
+Whenever possible, use regular Python types, `Pydantic types <https://docs.pydantic.dev/latest/api/types/>`__, or `Pydantic network types <https://docs.pydantic.dev/latest/api/networks/>`__.
+This allows Pydantic to do built-in validation.
 
-For example, it's more convenient to use :py:class:`datetime.timedelta` for durations, since they can be used in date math with :py:class:`datetime.datetime` objects without further conversion.
-But for input, the most convenient duration format is often an integer number of seconds.
-The following validator will handle this:
+If some fields of your model are required only if another field is set, consider structuring your model so that the choices are captured in two separate models.
+This allows Pydantic to decide whether to require those fields based entirely on the model structure, without needing a custom validator, which also means the constraint will be captured in the OpenAPI schema.
 
-.. code-block:: python
-
-   def normalize_timedelta(v: int | None) -> timedelta | None:
-       if v is None:
-           return v
-       elif isinstance(v, int):
-           return timedelta(seconds=v)
-       else:
-           raise ValueError("invalid timedelta (should be in seconds)")
-
-It would then be used as follows:
+For example:
 
 .. code-block:: python
 
-   class Something:
-       lifetime: timedelta = Field(
-           ...,
-           title="Lifetime in seconds",
-           example=3600
-       )
+   from typing import Literal, Annotated
 
-       _normalize_lifetime = validator(
-           "lifetime", allow_reuse=True, pre=True
-       )(normalize_timedelta)
-
-       class Config:
-           json_encoders = {timedelta: lambda v: int(v.total_seconds())}
-
-Note the Pydantic configuration for converting :py:class:`datetime.timedelta` back to seconds when returning the model as JSON (in, for example, a response body).
-
-Safir_ comes with `some utility functions for Pydantic <https://safir.lsst.io/user-guide/pydantic.html>`__.
-For example, it has a validator to supplement Pydantic's built-in support for parsing some date and time formats to include seconds since epoch and to canonicalize the time zone to UTC.
-It can be used as follows (a very partial model):
-
-.. code-block:: python
-
-   from safir.pydantic import normalize_datetime
+   from pydantic import BaseModel, ConfigDict, Field
 
 
-   class TokenInfo:
-       created: datetime = Field(
-           default_factory=current_datetime,
-           title="Creation time",
-           description="Creation timestamp of the token in seconds since epoch",
-           example=1614986130,
-       )
+   class BaseVolumeSource(BaseModel):
+       type: Annotated[
+           str, Field(title="Type of volume to mount", examples=["nfs"])
+       ]
 
-       last_used: Optional[datetime] = Field(
-           None,
-           title="Last used",
-           description="When the token was last used in seconds since epoch",
-           example=1614986130,
-       )
+       model_config = ConfigDict(extra="forbid")
 
-       _normalize_created = validator(
-           "created", "last_used", allow_reuse=True, pre=True
-       )(normalize_datetime)
 
-       class Config:
-           json_encoders = {datetime: lambda v: int(v.timestamp())}
+   class HostPathVolumeSource(BaseVolumeSource):
+       type: Annotated[
+           Literal["hostPath"], Field(title="Type of volume to mount")
+       ]
 
-Note the syntax for validating multiple fields with the same validator.
+       path: Annotated[
+           str,
+           Field(
+               title="Host path",
+               examples=["/home"],
+               pattern="^/.*",
+           )
+
+
+   class NFSVolumeSource(BaseVolumeSource):
+       """NFS volume to mount in the container."""
+
+       type: Annotated[
+           Literal["nfs"], Field(title="Type of volume to mount")
+       ]
+
+       server: Annotated[
+           str,
+           Field(
+               title="NFS server",
+               examples=["10.13.105.122"],
+           )
+       ]
+
+       server_path: Annotated[
+           str,
+           Field(
+               title="Export path",
+               examples=["/share1/home"],
+               pattern="^/.*",
+           ),
+       ]
+
+
+   class VolumeConfig(BaseModel):
+       source: Annotated[
+           HostPathVolumeSource | NFSVolumeSource,
+           Field(title="Source of volume")
+       ]
+
+:py:obj:`~typing.Literal` and the ``type`` field are used to ensure that only one of the possible models for ``source`` will match.
+Pydantic will then ensure (due to ``extra="forbid"``) that only the fields appropriate to that type of volume are populated.
+
+In some cases, it's still necessary to write model validators to check complex constraints that can't be represented by data types or model structure.
+Strongly prefer ``after`` validators where possible, since they're easy to read and reason about.
+Reserve ``before`` validators only for cases where you have to convert the format of the input into something acceptable to the field type.
+
+datetime validation
+^^^^^^^^^^^^^^^^^^^
+
+Although Pydantic has built-in support for validating :py:obj:`~datetime.datetime` fields, it accepts input values in any time zone and preserves that time zone information.
+I strongly recommend converting all input times to UTC as early as possible and using only UTC within the code of a service.
+
+Safir provides several Pydantic validators that ensure that every :py:obj:`~datetime.datetime` object stored in the model is in UTC.
+See the `Safir documentation <https://safir.lsst.io/user-guide/pydantic.html#normalizing-datetime-fields>`__ for more details.
 
 Accepting camel-case
 ^^^^^^^^^^^^^^^^^^^^
@@ -483,28 +573,25 @@ You can do this by annotating a given Pydantic model as follows:
 
 .. code-block:: python
 
-   from safir.pydantic import to_camel_case
+   from pydantic import BaseModel, ConfigDict
+   from pydantic.alias_generators import to_camel
 
 
    class SomeModel(BaseModel):
        some_field: str
        # ...
 
-       Config:
-           alias_generator = to_camel_case
-           allow_population_by_field_name = True
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 The model can then be initialized with either snake-case or camel-case attributes, and will be accessible inside Python using snake-case to match the Python convention.
 
 Internal models
 ---------------
 
-For models that are only used internally (such as between services and storage objects) and do not require validation, prefer dataclasses_ to Pydantic models.
+For models that are only used internally (such as between services and storage objects) and do not require validation, prefer :py:mod:`dataclasses` to Pydantic models.
 Dataclasses are much simpler and signal that none of the complex validation or data transformation done by Pydantic is in play.
 
-.. _dataclasses: https://docs.python.org/3/library/dataclasses.html
-
-As with Pydantic models, use Enum classes for any field that's limited to a specific set of values, and use submodels instead of dictionaries with mixed value types.
+As with Pydantic models, use :py:obj:`~enum.Enum` classes for any field that's limited to a specific set of values, and use submodels instead of dictionaries with mixed value types.
 
 Consider marking dataclasses as frozen and creating a new instance of the dataclass whenever you need to modify one.
 This makes them easier to reason about and avoids subtle bugs when dataclasses are stored in caches or other long-lived data structures.
@@ -519,7 +606,7 @@ They are data structures and data containers, not repositories of code.
 The one case where methods on models are appropriate is for data conversion.
 Use custom constructors (written as class methods) to create a data model object by parsing some other representation of that object.
 Add methods starting with ``to_`` to format the contents of the data model into some other representation, such as ``to_dict`` or ``to_cookie``.
-(Pydantic provides a built-in ``dict`` method, but sometimes the desired dictionary representation involves some other format conversion that warrants a custom ``to_dict`` method.)
+(Pydantic provides a built-in ``model_dump`` method, but sometimes the desired dictionary representation involves some other format conversion that warrants a custom ``to_dict`` method.)
 
 These methods should only do format conversion and input validation, not higher-level verification or business logic such as authorization checks.
 

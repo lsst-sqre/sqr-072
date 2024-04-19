@@ -24,6 +24,7 @@ nitpick = true
 
 [technote.sphinx.intersphinx.projects]
 python = "https://docs.python.org/3/"
+safir = "https://safir.lsst.io/"
 
 [technote.status]
 state = "stable"

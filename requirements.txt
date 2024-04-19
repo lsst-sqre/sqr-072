@@ -1,2 +1,1 @@
-blockdiag
-documenteer[technote]
+documenteer[technote]>=1.0,<2.0

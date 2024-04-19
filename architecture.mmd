@@ -1,7 +1,7 @@
 graph TB
     requests([requests])
     config
-    command([command])
+    commands([commands])
     cli
     dependencies
     handlers
@@ -20,6 +20,6 @@ graph TB
     config --> factory
     factory --> handlers
 
-    command --> cli
+    commands --> cli
     factory --> cli
     cli --> services

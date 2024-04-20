@@ -154,7 +154,7 @@ Some additional conventions:
     If the application uses SQL storage, the ``init`` command should set up the schema for the application in an empty database.
     Consider implementing a ``delete-all-data`` command to erase the database, since sometimes one wants to reset an installation of the application that uses a cloud SQL database.
 
-    If the application has full documentation, the ``openapi-schema`` command should print the OpenAPI_ schema for its REST interface to standard output (via the ``get_openapi`` function `provided by FastAPI <https://fastapi.tiangolo.com/advanced/extending-openapi/?h=#the-normal-process>`__).
+    If the application has full documentation, the ``openapi-schema`` command should print the OpenAPI_ schema for its REST interface to standard output (via the ``get_openapi`` function `provided by FastAPI <https://fastapi.tiangolo.com/how-to/extending-openapi/>`__).
     See :ref:`documentation` for more details.
 
     .. _OpenAPI: https://spec.openapis.org/oas/latest.html
@@ -398,7 +398,7 @@ FastAPI relies on Pydantic_ for validation and parsing, so all models used by ha
 This includes the models for form submission as well as JSON POST bodies, when form submission has to be supported.
 It also includes anything returned by a handler in a response body, including error responses.
 
-.. _Pydantic: https://pydantic-docs.helpmanual.io/
+.. _Pydantic: https://docs.pydantic.dev/latest/
 
 .. _pydantic-models:
 
@@ -723,23 +723,26 @@ Here is an example handler definition that follows those principles:
 
    @router.get(
        "/users/{username}/tokens",
-       response_model=List[TokenInfo],
+       response_model=list[TokenInfo],
        response_model_exclude_none=True,
        summary="List tokens",
        tags=["user"],
    )
    async def get_tokens(
-       username: str = Path(
-           ...,
-           title="Username",
-           example="someuser",
-           min_length=1,
-           max_length=64,
-           regex=USERNAME_REGEX,
-       ),
-       auth_data: TokenData = Depends(authenticate_read),
-       context: RequestContext = Depends(context_dependency),
-   ) -> List[TokenInfo]:
+       *,
+       username: Annotated[
+           str,
+           Path(
+               title="Username",
+               example="someuser",
+               min_length=1,
+               max_length=64,
+               regex=USERNAME_REGEX,
+           ),
+       ],
+       auth_data: Annotated[TokenData, Depends(authenticate_read)],
+       context: Annotated[RequestContext, Depends(context_dependency)],
+   ) -> list[TokenInfo]:
        token_service = context.factory.create_token_service()
        async with context.session.begin():
            return await token_service.list_tokens(auth_data, username)
@@ -748,6 +751,9 @@ Note that the body of the handler is only three lines (the second line to do SQL
 The bulk of the code is in the decorator (to add documentation and control the fields returned) and the parameter list (to document the path parameter and require authentication).
 
 This handler uses the :ref:`request-context` pattern.
+
+Handlers should always use the :py:obj:`~typing.Annotated` approach to declare parameters from dependencies or FastAPI input parsing methods, and the argument list should always start with ``*`` to force named arguments.
+This avoids any ordering problems between parameters with defaults and parameters without defaults.
 
 .. _dependencies:
 
@@ -765,13 +771,13 @@ A dependency has an advantage over a global variable that the state can be loade
 This in turn means that the state is automatically recreated between tests, provided that you use the standard ``app`` test fixture, which prevents a lot of problems.
 
 A typical lazily-initialized dependency consists of a class (which holds the state) and an instantiation of that class in a global variable.
-For example, here is the basic structure of the Safir-provided ``http_client_dependency``:
+For example, here is the basic structure of the Safir-provided :py:obj:`~safir.dependencies.http_client.http_client_dependency`:
 
 .. code-block:: python
 
    class HTTPClientDependency:
        def __init__(self) -> None:
-           self._http_client: Optional[httpx.AsyncClient] = None
+           self._http_client: httpx.AsyncClient | None = None
 
        async def __call__(self) -> httpx.AsyncClient:
            if not self._http_client:
@@ -792,14 +798,14 @@ For example, here is the basic structure of the Safir-provided ``http_client_dep
 The ``aclose`` method is then called from a shutdown hook to cleanly free the HTTPX client and avoid Python warnings.
 
 The general pattern here is that the constructor creates a private instance variable to hold the state but doesn't initialize it.
-The ``__call__`` method initializes that variable if it is ``None`` and then returns its value.
-The ``aclose`` method does any necessary cleanup and sets the variable back to ``None``.
+The ``__call__`` method initializes that variable if it is :py:obj:`None` and then returns its value.
+The ``aclose`` method does any necessary cleanup and sets the variable back to :py:obj:`None`.
 This class is then instantiated as a singleton object that is used as a FastAPI dependency.
 
 Conventionally, the class name ends in ``Dependency`` and the singleton object name ends in ``_dependency``.
 
-If the dependency holds something that requires explicit initialization before the first call (usually because it requires parameters, such as from a configuration file that isn't loaded at module load time), add an ``initialize`` method and call that method from the startup hook of the FastAPI service.
-The ``__call__`` method should then check that the instance variable has been initialized and raise ``RuntimeError`` if it has not been.
+If the dependency holds something that requires explicit initialization before the first call (usually because it requires parameters, such as from a configuration file that isn't loaded at module load time), add an ``initialize`` method and call that method from the startup portion of the lifespan hook of the FastAPI service.
+The ``__call__`` method should then check that the instance variable has been initialized and raise :py:exc:`RuntimeError` if it has not been.
 
 .. _request-context:
 
@@ -893,7 +899,7 @@ Storage
 =======
 
 The storage layer is responsible for converting internal models into the format required to store them somewhere else.
-That "somewhere else" could be a SQL database, Redis, another web service with an API, or even an internal in-memory cache.
+That "somewhere else" could be a SQL database, Redis, another web service with an API, an internal in-memory cache, or even other commands.
 
 The rule for the storage layer is absolutely no business logic.
 The sole responsibility of the storage layer is to take a model or simple types from the service layer and perform an operation: store data, retrieve data (and return it as a model), delete data, and so forth.
@@ -927,39 +933,47 @@ Naming
 ------
 
 Organize the tests according to the entry point of the application invoked.
-For example, tests that create the full FastAPI application and interact with its routes go into a ``tests/handlers`` directory.
-Tests that create a service object and interact with it directly go into the ``tests/services`` directory.
-Most tests will be in ``tests/handlers``; this is fine.
-
-The ``tests`` directory and every subdirectory must have an empty ``__init__.py`` file so that mypy works correctly.
+For example, tests that create the full FastAPI application and interact with its routes go into a :file:`tests/handlers` directory.
+Tests that create a service object and interact with it directly go into the :file:`tests/services` directory.
+Most tests will be in :file:`tests/handlers`; this is fine.
 
 Files containing tests should always end in ``_test.py`` and should never start with ``test_``.
-This makes tab completion on file names more useful.
-As a first rough guide, put tests into files matching the name of the source file primarily being tested, but feel free to deviate from this guideline to break up large files of tests into ones grouped by subject matter.
+
+The name of the test should, by default, match the name of the module in which the code it is testing is defined.
+For example, if a handler is defined in :file:`handlers/users.py`, the corresponding tests should normally be in :file:`tests/handlers/users_test.py`.
+However, feel free to deviate from this guideline to break up large files of tests into ones grouped by subject matter (:file:`users_search_test.py` and :file:`users_create_test.py`, for example).
+
+The :file:`tests` directory and every subdirectory must have an empty :file:`__init__.py` file so that mypy works correctly.
 
 Fixtures and support code
 -------------------------
 
-Fixtures should generally be collected into a ``tests/conftest.py`` file.
-Avoid fixtures in individual test files; they're easy to forget about and thus not reuse in other tests even when they would be helpful.
-If there are a set of fixtures that are very specific to tests for only one part of the application, such as Kubernetes fixtures for a ``tests/operator`` directory full of tests for a Kopf_ Kubernetes operator, put them in a ``conftest.py`` file in that directory so that they're isolated to those tests.
+Fixtures should generally be collected into a :file:`tests/conftest.py` file.
+Avoid fixtures in individual test files unless you are absolutely certain they will never be used outside that file.
 
-To clean up after tests that need external resources or modify global state, use `yield fixtures <https://docs.pytest.org/en/latest/fixture.html#yield-fixtures-recommended>`__.
-Set up the resource or global state in the fixture, yield (it's okay to yield ``None`` and is often appropriate if the fixture doesn't need to provide a value to the test), and then close any resources and put any global state back the way it was.
+If there are a set of fixtures that are very specific to tests for only one part of the application, such as Kubernetes fixtures for a :file:`tests/operator` directory full of tests for a Kopf_ Kubernetes operator, put them in a :file:`conftest.py` file in that directory so that they're isolated to those tests.
+
+To clean up after tests that need external resources or modify global state, use `yield fixtures <https://docs.pytest.org/en/latest/how-to/fixtures.html#yield-fixtures-recommended>`__.
+Set up the resource or global state in the fixture, yield (it's okay to yield :py:obj:`None` and is often appropriate if the fixture doesn't need to provide a value to the test), and then close any resources and put any global state back the way it was.
+Conventionally, test fixtures that yield :py:obj:`None` should be named with a leading underscore to make it clear that their value is not used inside the test function as an actual parameter.
+
+If tests need environment variables to be set, use monkeypatch_.
+The one exception is tests for command-line commands using Click_, which should pass the environment variables into `CliRunner.invoke() <https://click.palletsprojects.com/en/8.1.x/api/#click.testing.CliRunner.invoke>`__.
 
 Prefer per-test fixtures, but feel free to use session fixtures in places where it substantially speeds up the test suite (but be careful to avoid leaking state from one test to the next).
 
-Put support code for tests in modules under ``tests/support``.
+Put support code for tests in modules under :file:`tests/support`.
 There should be no actual tests in that directory, only support code for other tests.
-Any test support code used in more than one test should go into that directory, and feel free to move support code used by only one test file as well if it seems clearer.
+Any test support code used in more than one test should go into that directory.
+Feel free to move support code used by only one test file as well if it seems clearer.
 
 Try to keep the code in fixtures as short as possible.
-Prefer to put the bulk of the code under ``tests/support`` and have the fixture call a function or use an object defined there.
+Prefer to put the bulk of the code under :file:`tests/support` and have the fixture call a function or use an object defined there.
 
 Test data
 ---------
 
-Prefer storing test data in files under the ``tests`` directory in an appropriately-named subdirectory over embedding test data in long strings inside test cases.
+Prefer storing test data in files under a :file:`tests/data` directory in an appropriately-named subdirectory over embedding test data in long strings inside test cases.
 Test data can then be loaded with code such as:
 
 .. code-block:: python
@@ -987,14 +1001,14 @@ For other cases, prefer the listed PyPI libraries:
 - **Command line**: Click_
 - **Kubernetes**: kubernetes_asyncio_ and, for Kubernetes operators, Kopf_
 - **LDAP**: bonsai_
-- **Redis**: aioredis_
+- **Redis**: redis-py_
 - **SQL**: SQLAlchemy_ (use the 2.0 API with async) and asyncpg_
 - **Templating**: Jinja_
 - **YAML**: PyYAML_ if preserving comments and order isn't required, otherwise ruamel.yaml_.
 
 .. _kubernetes_asyncio: https://github.com/tomplus/kubernetes_asyncio
 .. _bonsai: https://bonsai.readthedocs.io/en/latest/
-.. _aioredis: https://aioredis.readthedocs.io/en/latest/
+.. _redis-py: https://redis.readthedocs.io/en/latest/
 .. _asyncpg: https://magicstack.github.io/asyncpg/current/
 .. _Jinja: https://jinja.palletsprojects.com/en/latest/
 .. _PyYAML: https://pyyaml.org/
@@ -1005,41 +1019,33 @@ For other cases, prefer the listed PyPI libraries:
 Coding style
 ============
 
-In general, coding style follows :pep:`8` as enforced by flake8_ and Black_, using the standard configuration from the Safir FastAPI App template.
+In general, coding style follows :pep:`8` as enforced by Ruff_ and the Ruff configuration installed by the `FastAPI Safir App`_ project template.
 Here are some additional, somewhat random notes.
 
-.. _flake8: https://flake8.pycqa.org/en/latest/
-.. _Black: https://black.readthedocs.io/en/stable/
+.. _Ruff: https://docs.astral.sh/ruff/
 
 Typing
 ------
 
-- Do not use ``from __future__ import annotations`` in any file that defines FastAPI handlers or dependencies.
-  If you don't follow this rule, you will run into bizarre and hard-to-understand problems because FastAPI relies heavily on type annotations and cannot do the analysis it needs to do when this feature is enabled.
-  You can still use this directive in other files, such as services, storage modules, and models.
-  If you need a forward type reference in a file that defines a dependency or handler (this is rare and, except in alternate constructors, probably a sign you have code you should move to a model or a service), quote the reference instead of using this directive.
-  If you can switch to Python 3.11 or later, the ``Self`` type may do what you want.
-
 - All code should be fully typed using mypy.
-  Use ``TypeVar`` and bound types to type function decorators and generics as tightly as possible and avoid losing type information.
-  For helper functions that return ``None`` only if the input is ``None``, use ``@overload`` to tell mypy about those sematics and avoid a generic ``Optional`` return type.
-  When retrieving objects from places where they lose type information (such as the `Kopf memo data structure <https://kopf.readthedocs.io/en/stable/memos/>`__, immediately assigned them to a variable with an explicit type so that the rest of the code gets the benefit of strong type checking.
 
-- In cases where you know that a value is not ``None`` but mypy cannot figure this out, add an explicit test and raise ``RuntimeError`` if the value is ``None``.
-  However, this case usually indicates a correctable flaw in the type system, and a more careful design of types usually allows removing the ``Optional`` annotation.
-  Sometimes this will require using type inheritance and multiple classes instead of a single class where some parameters or internal data types are marked ``Optional``.
+- Use :py:obj:`~typing.ParamSpec` and :py:obj:`~typing.TypeVar` to type function decorators and generics as tightly as possible and avoid losing type information.
 
-- Avoid ``Union`` types.
+- For helper functions that return :py:obj:`None` only if the input is :py:obj:`None`, use ``@overload`` to tell mypy about those sematics and avoid a generic ``| None`` return type.
+
+- When retrieving objects from places where they lose type information (such as the `Kopf memo data structure <https://kopf.readthedocs.io/en/stable/memos/>`__, immediately assigned them to a variable with an explicit type so that the rest of the code gets the benefit of strong type checking.
+
+- In cases where you know that a value is not :py:obj:`None` but mypy cannot figure this out, add an explicit test and raise :py:exc:`RuntimeError` if the value is :py:obj:`None`.
+  However, this case usually indicates a correctable flaw in the type system, and a more careful design of types usually allows removing the ``| None`` annotation.
+  Sometimes this will require using type inheritance and multiple classes instead of a single class where some parameters or internal data types are marked with ``| None``.
+
+- Be cautious with ``from __future__ import annotations`` in any file that defines FastAPI handlers or dependencies.
+  It can cause bizarre and hard-to-understand problems because FastAPI relies heavily on type annotations and cannot do the analysis it needs to do when this feature is enabled.
+  You can (and should) still use this directive in other files, such as services, storage modules, and models.
+
+- Avoid union types.
   They are usually not necessary and add considerable complexity to the signatures and type-checking of surrounding code.
   Instead, be more opinionated about the correct type and convert to that type earlier.
-  In the rare case where they are appropriate, such as models with two mutually-exclusive options, use the ``|`` syntax instead of the ``Union`` syntax (unless you have to support Python 3.9 for some reason).
-
-- Prefer ``list`` and ``dict`` to ``List`` and ``Dict``, and similarly for all of the other deprecated types listed in :pep:`585`.
-  Note that many types (such as ``AsyncIterator``, ``Iterable``, and ``Mapping``) should be imported from ``collections.abc`` and not ``typing``.
-
-- Whether to use ``Optional[str]`` or ``str | None`` is to some extent a matter of taste (unless you have to support Python 3.9 or earlier).
-  My rule is that optional parameters to functions, optional attributes for models, and placeholder values (such as in the constructor of an object that must be initialized before being used) are annotated with ``Optional``.
-  All return values, any place where the argument is required but still may be ``None``, use the ``str | None`` syntax instead.
 
 Data types
 ----------
@@ -1050,21 +1056,19 @@ Data types
   Convert data to the internal model as early as possible and back to a more generic format as late as possible.
   (There is no need to avoid use of lists, or of dictionaries with consistent types.)
 
-- All times internally should be represented as ``datetime`` objects in the UTC time zone.
-  Convert requests to this format and responses from this format using Pydantic validators and JSON encoders.
+- All times internally should be represented as :py:obj:`~datetime.datetime` objects in the UTC time zone.
+  Convert requests to this format using Pydantic validators.
+  Always report times in responses in UTC.
   Convert to non-timezone-aware UTC date-time SQL types for database storage in the storage layer, using `Safir functions <https://safir.lsst.io/user-guide/database.html#handling-datetimes-in-database-tables>`__.
   Use the `Safir validator <https://safir.lsst.io/user-guide/pydantic.html#normalizing-datetime-fields>`__ to validate and canonicalize ``datetime`` objects in models.
 
-- Differences between times, including usually in constants, should be represented as ``timedelta`` objects rather than an integer number of seconds, minutes, etc.
-  The one exception is if the constant is used as a validation parameter in contexts (such as some Pydantic and FastAPI cases) where a ``timedelta`` is not supported.
+- Differences between times, including usually in constants, should be represented as :py:obj:`~datetime.timedelta` objects rather than an integer number of seconds, minutes, etc.
+  The one exception is if the constant is used as a validation parameter in contexts (such as some Pydantic and FastAPI cases) where a :py:obj:`~datetime.timedelta` is not supported.
 
-- Always use pathlib_ for any file paths.
-  Never use os.path_ functions.
-  If necessary for external APIs, convert ``Path`` objects to strings with ``str()`` when passing them to external methods or functions.
-  For internal APIs and internal models, always take a ``Path`` object rather than a ``str`` when accepting a file path.
-
-.. _pathlib: https://docs.python.org/3/library/pathlib.html
-.. _os.path: https://docs.python.org/3/library/os.path.html
+- Always use :py:obj:`pathlib.Path` for any file paths.
+  Never use :py:mod:`os.path` functions.
+  If necessary for external APIs, convert :py:obj:`~pathlib.Path` objects to strings with ``str()`` when passing them to external methods or functions.
+  For internal APIs and internal models, always take a :py:obj:`~pathlib.Path` object rather than a :py:obj:`str` when accepting a file path.
 
 Modules
 -------
@@ -1073,7 +1077,9 @@ Modules
   Use absolute imports of package modules from the test suite, and use relative imports inside the test suite of test suite support code.
 
 - The public API of a module (only and exactly those symbols used by other modules) should be listed in ``__all__``.
-  This is required if you are building :ref:`internal API documentation <api-documentation>` because the Sphinx ``automodapi`` plugin uses ``__all__`` to determine what to generate documentation for.
+  This is required if you are building :ref:`internal API documentation <api-documentation>` because the Sphinx automodapi_ plugin uses ``__all__`` to determine what to generate documentation for.
+
+  .. _automodapi: https://sphinx-automodapi.readthedocs.io/en/latest/
 
 - Functions and variables used only within a module should be prefixed with ``_``, just like private methods (see :ref:`style-classes`).
 
@@ -1085,7 +1091,7 @@ Classes
 - Put a single underscore (``_``) in front of methods and instance variables that are internal to the class to mark them private.
   All instance variables of normal (non-model) objects should normally be internal to the class.
 
-  No private methods or instance variables should be used outside of the class.
+- No private methods or instance variables should be used outside of the class.
   A special exception can be made for tests, although even there it's usually preferrable to add special methods for tests and document them as only being useful for testing.
 
 - Do not use Pydantic models or dataclasses for normal objects that encapsulate behavior and resources, such as services or storage objects.
@@ -1093,7 +1099,7 @@ Classes
   This is the opposite of the behavior represented by a traditional object, where the object should only be used via its public methods and the purpose of the object is to hide the complexity of its implementation and underlying data.
 
 - Classes that have an async teardown method that frees resources stored in the class should name that method ``aclose`` (not ``close``).
-  This makes the class compatible with `contextlib.aclosing <https://docs.python.org/3/library/contextlib.html#contextlib.aclosing>`__.
+  This makes the class compatible with :py:func:`contextlib.aclosing`.
 
 - Classes that represent background processing, rather than a resource container, should have ``start`` and ``stop`` methods to start and stop that processing rather than using ``aclose``.
 
@@ -1105,7 +1111,8 @@ Methods and functions
   For cases where some of the parameters are optional and not always given, and there are three or fewer mandatory parameters, you can instead put only the optional parameters after ``*``, or use some mix that makes sense (taking into account the next rule).
 
 - Whenever the meaning of a method or function parameter is not obvious in context at the call site, put that parameter after ``*`` so that the parameter name is mandatory.
-  A common case of this is boolean parameters, which should almost always be listed after ``*`` because the meaning of a bare ``True`` or ``False`` is usually inobvious at the call site.
+  A common case of this is boolean parameters, which should almost always be listed after ``*`` because the meaning of a bare :py:obj:`True` or :py:obj:`False` is usually inobvious at the call site.
+  (Ruff will enforce this.)
 
 - Use ``to_`` as a prefix for methods that convert a data object's contents to another format (such as ``to_dict`` or ``to_header``).
   Use ``from_`` as a prefix to class methods that create a data object from some other data source (such as ``from_cookie`` or ``from_str``).
@@ -1116,9 +1123,7 @@ Methods and functions
 Docstrings
 ----------
 
-- Write docstrings following the `Rubin project recommendations <https://developer.lsst.io/python/numpydoc.html>`__.
-  (As of this writing, this guide does not yet recommend omitting types from the docstrings, which is now better style when using current Sphinx.
-  This is likely to be updated soon.)
+- Write docstrings following the `Rubin project recommendations <https://developer.lsst.io/python/numpydoc.html>`__, except you should not include types for parameters and you should list only the type (not a fake variable name) in **Returns** and **Yields**.
 
 - Contrary to the above style guide, I restrict the first, summary line of any docstring to fit entirely on one line.
   This is just personal preference; to me, wrapped summary lines look awkward and haven't felt necessary.
@@ -1126,10 +1131,10 @@ Docstrings
 - All modules, classes, public methods of classes and instances, functions, and constants should have full docstrings following the above style.
   Modules that provide only a single class usually only need a one-line docstring, since the bulk of the useful documentation goes into the class and doesn't need to be repeated.
 
-  Private methods should still have docstrings and may have full docstrings, but it's okay to be looser and to omit documentation (parameters and returns, for example) that doesn't add much value or that feels obvious in context, since the docstrings of private methods will only be read by someone already reading the full source.
+- Private methods should still have docstrings and may have full docstrings, but it's okay to be looser and to omit documentation (parameters and returns, for example) that doesn't add much value or that feels obvious in context, since the docstrings of private methods will only be read by someone already reading the full source.
   Test fixtures and helper functions are similar to private methods in this respect.
 
-  Tests should never document their parameters (which will all be fixtures with their own documentation anyway), but may contain a docstring if it's not obvious what the test is testing.
+- Tests should never document their parameters (which will all be fixtures with their own documentation anyway), but may contain a docstring if it's not obvious what the test is testing.
 
 - Docstrings are for callers and internal comments are for editors.
   If there is some subtlety to the implementation or approach of a method, but the caller doesn't need to know about it, put that information in a comment instead of in the docstring.
@@ -1142,7 +1147,7 @@ Documentation
 Only a few applications are complex enough to warrant a full manual, but every application should have some documentation.
 Here are the options in descending order of number of applications that will need this type of documentation.
 
-Don't put comprehensive documentation in the ``README.md`` file of the application repository itself.
+Don't put comprehensive documentation in the :file:`README.md` file of the application repository itself.
 Instead, stick to a brief description of the application and link to the other documentation sources mentioned here.
 
 API documentation
@@ -1167,7 +1172,7 @@ Phalanx
 -------
 
 Any application deployed via Phalanx will get an entry in the applications section of the `Phalanx documentation`_.
-For many internal components, this is all the documentation that's needed.
+For some internal components, this may be all the documentation that's needed.
 
 .. _Phalanx documentation: https://phalanx.lsst.io/
 
@@ -1206,12 +1211,13 @@ Manual
 Some larger applications, or applications that may be used outside of the Science Platform, may benefit from a full user manual.
 
 In this case, the manual should use the `Rubin user guide <https://documenteer.lsst.io/guides/index.html>`__ pattern following the Documenteer documentation.
-The manual source, as mentioned in that guide, should go in the ``docs`` directory.
-It should be published via GitHub Actions using LSST the Docs and its GitHub action.
-For an example, see the `Gafaelfawr configuration <https://github.com/lsst-sqre/gafaelfawr/blob/6f789ca8be28dc3fa5ccb513588afe06249998ec/.github/workflows/ci.yaml#L121>`__.
+The manual source, as mentioned in that guide, should go in the :file:`docs` directory.
+It should be published via GitHub Actions using LSST the Docs and its GitHub Action.
+For an example, see the `Gafaelfawr configuration <https://github.com/lsst-sqre/gafaelfawr/blob/0af2ab39158b438315b2c13870bc0932bf652989/.github/workflows/ci.yaml>`__.
 
-The user manual should not duplicate the Phalanx documentation or the tech notes.
+The user manual should not duplicate the Phalanx documentation and should not include the background and discarded alternatives portions of a tech note.
 Its focus should be on explaining to a user how to configure and use the application, and to a potential developer how to modify the application.
+
 If the application has a full manual, it may make sense to move most of the configuration documentation from the Phalanx docs to that manual, link to the manual from the Phalanx docs, and keep the Phalanx guides limited to only Phalanx-specific configuration and troubleshooting.
 
 All reStructuredText in the manual should use one sentence per line rather than wrapped text.
@@ -1221,54 +1227,7 @@ REST API documentation
 ^^^^^^^^^^^^^^^^^^^^^^
 
 If the application has a manual, it's a good idea to embed the REST API documentation in the manual so that a user doesn't have to find a running instance to view the documentation.
-
-Unfortunately, none of the mechanisms for doing this that I've found are wholly satisfactory.
-The `Swagger extension to Sphinx <https://pypi.org/project/sphinx-swagger/>`__ appears to no longer be maintained.
-The `OpenAPI extension <https://github.com/sphinx-contrib/openapi>`__ also hasn't been updated recently and didn't work when I tried it.
-I landed on `sphinxcontrib-redoc <https://sphinxcontrib-redoc.readthedocs.io/en/stable/>`__, which does work, but unfortunately doesn't incorporate the documentation into the manual as seamlessly as I'd like.
-
-That extension takes the ``openapi.json`` file as input, so you will need a command-line interface to the application to generate that file.
-See `the Gafaelfawr version <https://github.com/lsst-sqre/gafaelfawr/blob/6f789ca8be28dc3fa5ccb513588afe06249998ec/src/gafaelfawr/cli.py#L234>`__ for an example that you can customize for your application.
-Note the code there to add a back link to the rest of the documentation.
-Unfortunately, sphinxcontrib-redoc generates a standalone page, so users will be stranded on that page unless you manually add a back link.
-
-You will then need to invoke that command before building the docs (as part of your ``docs`` tox environment, for instance).
-Then, use a stanza like this in ``docs/conf.py``:
-
-.. code-block:: python
-
-   redoc = [
-       {
-           "name": "REST API",
-           "page": "rest",
-           "spec": "_static/openapi.json",
-           "embed": True,
-           "opts": {"hide-hostname": True},
-       }
-   ]
-   redoc_uri = (
-       "https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js"
-   )
-
-Finally, there's no way to include this generated page directly in the Sphinx user guide navigation, unfortunately, so you'll need a stub rST page that links to it.
-I include that page in the top-level navigation bar as "REST API".
-
-.. code-block:: rst
-
-   ########
-   REST API
-   ########
-
-   Once Gafaelfawr is installed, API documentation is available at
-   ``/auth/docs`` and ``/auth/redoc``.  The latter provides somewhat more
-   detailed information.
-
-   You can view a pregenerated version of the Redoc documentation for the
-   current development version of Gafaelfawr by following the link below.
-
-   `REST API <rest.html>`__
-
-(Lines have been wrapped to make the code sample more readable in this tech note, but normally this would use the one line per sentence convention.)
+See the `Documenteer documentation <https://documenteer.lsst.io/guides/openapi.html>`__ for instructions on how to do that.
 
 .. _api-documentation:
 
@@ -1280,15 +1239,13 @@ This is less important than for a library, since only developers of the applicat
 Besides, I'm writing the docstrings anyway, so including them in a manual isn't very much work.
 
 The target audience for internal API documentation is only developers, not users, so it should go into the developer section of the user guide.
-By convention, I use ``docs/dev/internals.rst`` as the top-level page with the automodapi_ directives.
-
-.. _automodapi: https://sphinx-automodapi.readthedocs.io/en/latest/
+By convention, I use :file:`docs/dev/internals.rst` as the top-level page with the automodapi_ directives.
 
 Do not include the handlers in the internal API documentation.
 They won't generate useful entries, and you should not write docstrings for handler functions.
 (They would be redundant with the FastAPI decorator.)
 
-Also do not include ``cli.py`` if you have one.
+Also do not include :file:`cli.py` if you have one.
 Instead, use sphinx-click_ to generate documentation for the command-line interface.
 
 .. _sphinx-click: https://sphinx-click.readthedocs.io/en/latest/
@@ -1301,6 +1258,11 @@ Change log
 Any application that has a manual should probably also have a change log.
 The change log is maintained in ``CHANGELOG.md`` at the top level of the repository, in Markdown format.
 It should summarize user-visible changes from the previous release.
+
+The change log should be maintained with scriv_.
+The `FastAPI Safir App`_ project template sets up scriv with an appropriate configuration.
+
+.. _scriv: https://scriv.readthedocs.io/en/latest/configuration.html
 
 Each entry should use the following layout:
 
@@ -1334,9 +1296,6 @@ There is no need to attribute changes to specific project members.
 If the change was contributed by someone outside the project, give them credit.
 I use "Patch from <name>" for merged PRs and "Thanks, <name>" for changes made in response to bug reports.
 
-While a release is still being prepared, the date in the version header should instead be ``(unreleased)``.
-Write new change log entries and update the version number based on semantic versioning as changes are merged to save time and ensure a complete change log when preparing the release.
-
 .. _releases:
 
 Releases
@@ -1345,8 +1304,10 @@ Releases
 Default to making a new release of the application after every noticable change, including bug fixes.
 Releases are cheap; follow the release early, release often principle.
 
+Before making a release, ensure that you have merged all dependabot PRs if possible and you have updated dependencies with :command:`make update-deps`.
+
 Each release should publish a Docker image to the GitHub Container Registry.
-(This is generally done via the GitHub Actions configuration provided by the FastAPI Safir App template.)
+(This is generally done via the GitHub Actions configuration provided by the `FastAPI Safir App`_ project template.)
 Also publishing the container to the Docker Hub registry is not necessary.
 
 Use `Semantic Versioning`_ versioning.
@@ -1355,6 +1316,8 @@ This means that my version numbers tend to increase faster than a lot of open so
 This is fine.
 
 .. _Semantic Versioning: https://semver.org/
+
+Collect the change logs with :command:`scriv collect` as part of the release process, and edit them for consistency.
 
 Each release should is marked with a Git tag matching the version number (with no leading ``v``).
 The FastAPI Safir App template uses setuptools_scm_ to generate the application version, which will take the version from the Git tag.
@@ -1367,4 +1330,4 @@ The title of the release should also be the version number.
 To create the text of the release description, tell GitHub to generate the release notes.
 If the package doesn't have a :ref:`changelog` file, that's all you need to do, although I will sometimes add a brief description of the purpose of the release above the list of merged PRs.
 
-If the package does have a :ref:`changelog` file using the documented formatting conventions, cut and paste the change log entry above the auto-generated PR summary and add one additional ``#`` to the heading for GitHub-generated release summary so that the headling levels match.
+If the package does have a :ref:`changelog` file using the documented formatting conventions, cut and paste the change log entry above the auto-generated PR summary and remove one ``#`` from each heading from the change log so that the heading levels match.

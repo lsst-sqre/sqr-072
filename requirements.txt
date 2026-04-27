@@ -1,1 +1,1 @@
-documenteer[technote]>=1.0,<3.0
+documenteer[technote]>=2.3.0,<3.0
